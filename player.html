@@ -542,9 +542,15 @@ function closeSolution() {
 // INIT
 // ══════════════════════════════════════════════════════
 (async () => {
-  // 1. Fehler: keine Track-ID
+  // 1. Fehler: keine Track-ID – zeige die tatsächliche URL zur Diagnose
   if (!TRACK_ID) {
-    showError('Ungültiger QR-Code', 'Bitte einen gültigen HitOrder QR-Code scannen.');
+    const received = window.location.href;
+    const short = received.length > 80 ? received.slice(0,80)+'…' : received;
+    showError(
+      'Ungültiger QR-Code',
+      'Kein "id"-Parameter gefunden.\n\nEmpfangene URL:\n' + short +
+      '\n\nBitte PDF neu erstellen und QR-Code neu scannen.'
+    );
     return;
   }
 
