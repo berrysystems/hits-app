@@ -986,11 +986,15 @@ async function generatePDF() {
       if (pos===0){doc.addPage();pageLabel(doc,`Rückseiten – Seite ${Math.floor(i/pp)+1} (Duplex)`);}
       const col=(cols-1)-(pos%cols);
       msgEl.textContent=`QR-Code ${i+1} von ${sorted.length}…`; await delay(10);
-      const trackId = (sorted[i].spotifyUrl.match(/track\/([a-zA-Z0-9]+)/) || [])[1] || '';
+      // Track-ID aus Spotify-URL extrahieren (https://open.spotify.com/track/ID oder spotify:track:ID)
+      const spUrl = sorted[i].spotifyUrl || '';
+      const trackId = (spUrl.match(/[/:](track)[/:]([A-Za-z0-9]+)/) || [])[2] || '';
       const rawInfo = sorted[i].title + '|' + sorted[i].artist + '|' + sorted[i].year;
       const info = btoa(unescape(encodeURIComponent(rawInfo)));
-      const base = window.location.origin + window.location.pathname.replace(/[^\/]*$/, '');
+      // Basis-URL: immer relativ zur aktuellen Seite, zuverlässig
+      const base = window.location.href.replace(/[?#].*$/, '').replace(/\/[^\/]*$/, '/');
       const playerUrl = base + 'player.html?id=' + encodeURIComponent(trackId) + '&s=' + encodeURIComponent(info);
+      if (!trackId) { toast('Fehlende Track-ID bei: ' + esc(sorted[i].title), 'err'); }
       const qr=await makeQR(playerUrl);
       drawBack(doc,qr,gx+col*(cW+gx),14+gy+Math.floor(pos/cols)*(cH+gy),cW,cH);
     }
