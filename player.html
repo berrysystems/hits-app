@@ -260,10 +260,8 @@ try {
   songInfo = { title:t||'', artist:a||'', year:y||'' };
 } catch(e) {}
 
-// ── Redirect URI immer mit den original Track-Params ──
-const REDIRECT_URI = window.location.origin + window.location.pathname
-                     + '?id=' + encodeURIComponent(TRACK_ID)
-                     + '&s='  + encodeURIComponent(S_PARAM);
+// Saubere Redirect URI – OHNE Query-Params (muss exakt mit Spotify-Dashboard übereinstimmen)
+const REDIRECT_URI = window.location.origin + window.location.pathname;
 
 // ══════════════════════════════════════════════════════
 // AUTH  –  eigene Schlüssel, NICHT dieselben wie HitOrder
@@ -331,6 +329,8 @@ async function doAuth() {
     showError('Nicht eingerichtet', 'Öffne HitOrder und verbinde zuerst Spotify unter dem 🎵 Symbol.');
     return;
   }
+  // Track-Info vor dem Redirect in sessionStorage sichern
+  sessionStorage.setItem('sp_p_pending', JSON.stringify({ trackId: TRACK_ID, sParam: S_PARAM }));
   const v = makeVerifier();
   const c = await makeChallenge(v);
   localStorage.setItem('sp_p_verifier', v);
@@ -356,7 +356,7 @@ async function handleCallback(code) {
       body: new URLSearchParams({
         grant_type:    'authorization_code',
         code,
-        redirect_uri:  REDIRECT_URI,
+        redirect_uri:  REDIRECT_URI,   // muss identisch mit doAuth() sein
         client_id:     CLIENT_ID,
         code_verifier: verifier,
       })
@@ -366,9 +366,18 @@ async function handleCallback(code) {
     localStorage.setItem('sp_p_token',   d.access_token);
     localStorage.setItem('sp_p_exp',     Date.now() + d.expires_in * 1000);
     if (d.refresh_token) localStorage.setItem('sp_p_refresh', d.refresh_token);
-    // URL bereinigen – Track-Params behalten, code entfernen
-    history.replaceState({}, '', window.location.pathname + '?id=' + encodeURIComponent(TRACK_ID) + '&s=' + encodeURIComponent(S_PARAM));
-    return true;
+    // Track-Info aus sessionStorage wiederherstellen
+    const pending = JSON.parse(sessionStorage.getItem('sp_p_pending') || '{}');
+    sessionStorage.removeItem('sp_p_pending');
+    const restoredId = pending.trackId || '';
+    const restoredS  = pending.sParam  || '';
+    // Seite mit korrekten Track-Params neu laden (sauber, kein ?code mehr in der URL)
+    window.location.replace(
+      window.location.pathname +
+      '?id=' + encodeURIComponent(restoredId) +
+      '&s='  + encodeURIComponent(restoredS)
+    );
+    return true;  // wird nie erreicht wegen replace, aber für Typsicherheit
   } catch(e) { showError('Anmeldung fehlgeschlagen', e.message); return false; }
 }
 
