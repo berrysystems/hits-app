@@ -211,6 +211,140 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+    /* ── Spotify Browser (full-screen) ── */
+    .sp-browser {
+      position: fixed; inset: 0; z-index: 350;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      transform: translateY(100%);
+      transition: transform .35s cubic-bezier(.4,0,.2,1);
+      max-width: 480px; left: 50%; margin-left: -240px;
+    }
+    @media (max-width: 480px) { .sp-browser { left:0; margin-left:0; } }
+    .sp-browser.open { transform: translateY(0); }
+
+    .sp-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px 0;
+      border-bottom: 1px solid var(--border);
+      background: rgba(14,13,18,.95);
+      backdrop-filter: blur(20px);
+      flex-shrink: 0;
+    }
+    .sp-back {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--surface2);
+      color: var(--text); font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-bottom: 10px;
+    }
+    .sp-header-info { flex: 1; padding-bottom: 0; }
+    .sp-header-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px; font-weight: 700;
+    }
+    .sp-header-title span { color: var(--green); }
+
+    .sp-tabs {
+      display: flex;
+      padding: 10px 16px 0;
+      flex-shrink: 0;
+    }
+    .sp-tab {
+      flex: 1; padding: 9px 4px; border: none; background: none;
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+      color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s; white-space: nowrap;
+    }
+    .sp-tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+    .sp-search-wrap {
+      padding: 12px 16px 8px; flex-shrink: 0; position: relative;
+    }
+    .sp-search-input {
+      width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 24px; padding: 11px 44px 11px 16px;
+      font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text);
+      outline: none; transition: border-color .18s;
+    }
+    .sp-search-input:focus { border-color: var(--green); }
+    .sp-search-input::placeholder { color: var(--muted); opacity: .5; }
+    .sp-search-ic {
+      position: absolute; right: 28px; top: 50%; transform: translateY(-50%);
+      font-size: 16px; pointer-events: none; opacity: .4;
+    }
+
+    .sp-content { flex: 1; overflow-y: auto; padding: 8px 0 20px; }
+
+    .sp-pl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 8px 16px; }
+    .sp-pl-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px; cursor: pointer;
+      transition: border-color .15s, transform .12s;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .sp-pl-card:active { transform: scale(.97); }
+    .sp-pl-card:hover { border-color: rgba(29,185,84,.4); }
+    .sp-pl-img {
+      width: 100%; aspect-ratio: 1; border-radius: 8px;
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; overflow: hidden;
+    }
+    .sp-pl-img img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+    .sp-pl-name { font-size: 12px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .sp-pl-count { font-size: 10px; color: var(--muted); }
+
+    .sp-song-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px; transition: background .12s;
+    }
+    .sp-song-row:hover { background: var(--surface); }
+    .sp-song-thumb {
+      width: 44px; height: 44px; border-radius: 6px;
+      background: var(--surface2); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; overflow: hidden;
+    }
+    .sp-song-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+    .sp-song-info { flex: 1; min-width: 0; }
+    .sp-song-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sp-song-meta  { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sp-add-btn {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      border: 1.5px solid var(--green); background: transparent;
+      color: var(--green); font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s; line-height: 1;
+    }
+    .sp-add-btn:hover  { background: var(--green); color: #fff; }
+    .sp-add-btn.added  { background: var(--green); color: #fff; font-size: 13px; }
+    .sp-add-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+    .sp-pl-back {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px 6px; font-size: 13px; color: var(--green);
+      cursor: pointer; font-weight: 600;
+    }
+    .sp-pl-title-row { padding: 4px 16px 12px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+    .sp-pl-title-row h3 { font-family: 'Playfair Display', serif; font-size: 17px; }
+    .sp-pl-title-row p  { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    .sp-import-bar { padding: 10px 16px; border-top: 1px solid var(--border); flex-shrink: 0; background: var(--surface); }
+    .sp-import-bar-btn {
+      width: 100%; height: 44px; border-radius: 10px;
+      background: rgba(29,185,84,.15); border: 1px solid rgba(29,185,84,.35);
+      color: var(--green); font-family: 'DM Sans', sans-serif;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s;
+    }
+    .sp-import-bar-btn:hover { background: rgba(29,185,84,.25); }
+    .sp-import-bar.hidden { display: none; }
+
+    .sp-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 50px 20px; gap: 14px; }
+    .sp-spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; }
+    .sp-loader p { font-size: 13px; color: var(--muted); }
+    .sp-empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 13px; }
+
     /* ── PWA Install Banner ── */
     .install-banner {
       position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
@@ -286,8 +420,34 @@
 <!-- FAB bar -->
 <div class="fab-bar">
   <button class="fab fab-add" onclick="openAdd()">+ Lied</button>
-  <button class="fab fab-playlist" onclick="openPlaylistImport()">🎵 Playlist importieren</button>
+  <button class="fab fab-playlist" onclick="openSpBrowser()">🎵 Spotify durchsuchen</button>
   <button class="fab fab-pdf" id="pdf-btn" onclick="generatePDF()" disabled>📄</button>
+</div>
+
+<!-- Spotify Browser (full-screen) -->
+<div class="sp-browser" id="sp-browser">
+  <div class="sp-header">
+    <button class="sp-back" onclick="closeSpBrowser()">←</button>
+    <div class="sp-header-info">
+      <div class="sp-header-title">Spotify <span>Bibliothek</span></div>
+    </div>
+  </div>
+  <div class="sp-tabs" id="sp-tabs">
+    <button class="sp-tab active" onclick="spTab(0)">Playlists</button>
+    <button class="sp-tab" onclick="spTab(1)">Suchen</button>
+    <button class="sp-tab" onclick="spTab(2)">Liked Songs</button>
+  </div>
+  <!-- Search bar (shown only on Search tab) -->
+  <div class="sp-search-wrap" id="sp-search-wrap" style="display:none">
+    <input class="sp-search-input" id="sp-search-input" type="text" placeholder="Lied oder Künstler suchen…" oninput="spSearchDebounce()">
+    <span class="sp-search-ic">🔍</span>
+  </div>
+  <div class="sp-content" id="sp-content">
+    <div class="sp-loader"><div class="sp-spinner"></div><p>Lade Playlists…</p></div>
+  </div>
+  <div class="sp-import-bar hidden" id="sp-import-bar">
+    <button class="sp-import-bar-btn" id="sp-import-bar-btn" onclick="spImportAll()">Gesamte Playlist importieren</button>
+  </div>
 </div>
 
 <!-- Add/Edit Sheet -->
@@ -488,7 +648,7 @@ const closeSheet   = id => document.getElementById(id).classList.remove('open');
 const bgTap        = (e,id) => { if (e.target === document.getElementById(id)) closeSheet(id); };
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') ['sheet-overlay','settings-overlay','playlist-overlay'].forEach(closeSheet);
+  if (e.key === 'Escape') { ['sheet-overlay','settings-overlay','playlist-overlay'].forEach(closeSheet); closeSpBrowser(); }
   if (e.key === 'Enter' && document.getElementById('sheet-overlay').classList.contains('open')) saveSong();
 });
 
@@ -870,6 +1030,273 @@ function drawBack(doc,qr,x,y,w,h) {
   doc.setFont('helvetica','bold');doc.setFontSize(5.8);doc.setTextColor(240,180,41);doc.text('SCANNEN & HÖREN',x+w/2,y+h-4,{align:'center'});
   cutMarks(doc,x,y,w,h,90);
 }
+
+
+// ══════════════════════════════════════════════════════
+// SPOTIFY BROWSER
+// ══════════════════════════════════════════════════════
+let spCurrentTab   = 0;          // 0=playlists 1=search 2=liked
+let spCurrentPl    = null;       // { id, name, total } when inside a playlist
+let spSearchTimer  = null;
+let spAddedUrls    = new Set();  // tracks already-added urls for UI feedback
+
+function openSpBrowser() {
+  if (!getToken()) {
+    toast('Bitte zuerst Spotify verbinden 🎵','err');
+    openSettings();
+    return;
+  }
+  spAddedUrls = new Set(songs.map(s => s.spotifyUrl));
+  document.getElementById('sp-browser').classList.add('open');
+  spTab(0);
+}
+
+function closeSpBrowser() {
+  document.getElementById('sp-browser').classList.remove('open');
+}
+
+function spTab(n) {
+  spCurrentTab = n;
+  spCurrentPl  = null;
+  // Update tab highlights
+  document.querySelectorAll('.sp-tab').forEach((t,i) => t.classList.toggle('active', i===n));
+  // Toggle search bar
+  document.getElementById('sp-search-wrap').style.display = n===1 ? 'block' : 'none';
+  // Hide import bar
+  spHideImportBar();
+  if (n===0) spLoadPlaylists();
+  else if (n===1) { spRender('<div class="sp-empty">Suchbegriff eingeben…</div>'); document.getElementById('sp-search-input').value=''; document.getElementById('sp-search-input').focus(); }
+  else if (n===2) spLoadLiked();
+}
+
+function spRender(html) {
+  document.getElementById('sp-content').innerHTML = html;
+}
+
+function spLoader(msg='Laden…') {
+  spRender(`<div class="sp-loader"><div class="sp-spinner"></div><p>${msg}</p></div>`);
+}
+
+function spHideImportBar() {
+  document.getElementById('sp-import-bar').classList.add('hidden');
+}
+function spShowImportBar(name, id) {
+  const bar = document.getElementById('sp-import-bar');
+  bar.classList.remove('hidden');
+  document.getElementById('sp-import-bar-btn').textContent = `„${name}" komplett importieren`;
+  document.getElementById('sp-import-bar-btn').onclick = () => spImportAll(id, name);
+}
+
+// ── Playlists ──────────────────────────────────────────
+async function spLoadPlaylists() {
+  spLoader('Lade deine Playlists…');
+  const token = await getValidToken();
+  if (!token) { spRender('<div class="sp-empty">Keine Verbindung</div>'); return; }
+  try {
+    const items = [];
+    let url = 'https://api.spotify.com/v1/me/playlists?limit=50';
+    while (url) {
+      const r = await fetch(url, { headers:{Authorization:'Bearer '+token} });
+      const d = await r.json();
+      items.push(...(d.items||[]));
+      url = d.next || null;
+    }
+    if (!items.length) { spRender('<div class="sp-empty">Keine Playlists gefunden</div>'); return; }
+    const cards = items.map(pl => {
+      const img = pl.images?.[0]?.url;
+      const thumb = img ? `<img src="${img}" alt="">` : '🎵';
+      return `<div class="sp-pl-card" onclick="spOpenPlaylist('${pl.id}','${escJs(pl.name)}',${pl.tracks.total})">
+        <div class="sp-pl-img">${thumb}</div>
+        <div class="sp-pl-name">${esc(pl.name)}</div>
+        <div class="sp-pl-count">${pl.tracks.total} Songs</div>
+      </div>`;
+    }).join('');
+    spRender(`<div class="sp-pl-grid">${cards}</div>`);
+  } catch(e) { spRender(`<div class="sp-empty">Fehler: ${e.message}</div>`); }
+}
+
+async function spOpenPlaylist(id, name, total) {
+  spCurrentPl = { id, name, total };
+  spLoader(`Lade „${name}"…`);
+  spShowImportBar(name, id);
+  const token = await getValidToken();
+  if (!token) return;
+  try {
+    const items = [];
+    let offset = 0;
+    while (offset < total) {
+      const r = await fetch(
+        `https://api.spotify.com/v1/playlists/${id}/tracks?limit=100&offset=${offset}&fields=items(track(id,name,artists,album(images,release_date),external_urls,is_local))`,
+        { headers:{Authorization:'Bearer '+token} }
+      );
+      const d = await r.json();
+      items.push(...(d.items||[]));
+      offset += 100;
+    }
+    const rows = items.map(item => spSongRow(item.track)).filter(Boolean).join('');
+    const header = `
+      <div class="sp-pl-back" onclick="spTab(0)">← Zurück zu Playlists</div>
+      <div class="sp-pl-title-row">
+        <h3>${esc(name)}</h3>
+        <p>${total} Songs</p>
+      </div>`;
+    spRender(header + (rows || '<div class="sp-empty">Keine abspielbaren Songs</div>'));
+  } catch(e) { spRender(`<div class="sp-empty">Fehler: ${e.message}</div>`); }
+}
+
+// ── Search ─────────────────────────────────────────────
+function spSearchDebounce() {
+  clearTimeout(spSearchTimer);
+  spSearchTimer = setTimeout(spDoSearch, 420);
+}
+
+async function spDoSearch() {
+  const q = document.getElementById('sp-search-input').value.trim();
+  if (q.length < 2) { spRender('<div class="sp-empty">Mindestens 2 Zeichen eingeben</div>'); return; }
+  spLoader('Suche…');
+  const token = await getValidToken();
+  if (!token) return;
+  try {
+    const r = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=30`,
+      { headers:{Authorization:'Bearer '+token} }
+    );
+    const d = await r.json();
+    const tracks = d.tracks?.items || [];
+    if (!tracks.length) { spRender('<div class="sp-empty">Keine Ergebnisse</div>'); return; }
+    const rows = tracks.map(t => spSongRow(t, true)).filter(Boolean).join('');
+    spRender(rows || '<div class="sp-empty">Keine abspielbaren Ergebnisse</div>');
+  } catch(e) { spRender(`<div class="sp-empty">Fehler: ${e.message}</div>`); }
+}
+
+// ── Liked Songs ────────────────────────────────────────
+async function spLoadLiked() {
+  spLoader('Lade deine Liked Songs…');
+  const token = await getValidToken();
+  if (!token) return;
+  try {
+    const r = await fetch('https://api.spotify.com/v1/me/tracks?limit=50', { headers:{Authorization:'Bearer '+token} });
+    const d = await r.json();
+    const items = (d.items||[]).map(i => i.track);
+    if (!items.length) { spRender('<div class="sp-empty">Keine Liked Songs</div>'); return; }
+    const rows = items.map(t => spSongRow(t, true)).filter(Boolean).join('');
+    spRender(rows);
+    spShowImportBar('Liked Songs', '__liked__');
+    document.getElementById('sp-import-bar-btn').onclick = () => spImportLiked();
+  } catch(e) { spRender(`<div class="sp-empty">Fehler: ${e.message}</div>`); }
+}
+
+// ── Song row builder ───────────────────────────────────
+function spSongRow(track, directImg=false) {
+  if (!track || track.is_local || !track.external_urls?.spotify) return '';
+  const url    = track.external_urls.spotify;
+  const title  = track.name;
+  const artist = track.artists?.map(a=>a.name).join(', ') || '';
+  const year   = parseInt((track.album?.release_date||'').split('-')[0]) || 0;
+  if (!year) return '';
+  const imgUrl = track.album?.images?.slice(-1)[0]?.url || '';
+  const thumb  = imgUrl ? `<img src="${imgUrl}" alt="">` : '🎵';
+  const added  = spAddedUrls.has(url);
+  const btnCls = added ? 'sp-add-btn added' : 'sp-add-btn';
+  const btnLbl = added ? '✓' : '+';
+  // Encode data into data attributes to avoid JS injection
+  const safeTitle  = escAttr(title);
+  const safeArtist = escAttr(artist);
+  const safeUrl    = escAttr(url);
+  return `<div class="sp-song-row" id="row-${btoa(url).replace(/[^a-z0-9]/gi,'')}">
+    <div class="sp-song-thumb">${thumb}</div>
+    <div class="sp-song-info">
+      <div class="sp-song-title">${esc(title)}</div>
+      <div class="sp-song-meta">${esc(artist)} · ${year}</div>
+    </div>
+    <button class="${btnCls}" onclick="spAddSong('${safeUrl}','${safeTitle}','${safeArtist}',${year},this)" ${added?'disabled':''} title="${added?'Bereits hinzugefügt':'Hinzufügen'}">${btnLbl}</button>
+  </div>`;
+}
+
+// ── Add single song ────────────────────────────────────
+function spAddSong(spotifyUrl, title, artist, year, btn) {
+  if (spAddedUrls.has(spotifyUrl)) return;
+  songs.push({ id:uid(), title, artist, year, spotifyUrl });
+  spAddedUrls.add(spotifyUrl);
+  save(); render();
+  btn.textContent = '✓';
+  btn.classList.add('added');
+  btn.disabled = true;
+  toast(`„${title}" hinzugefügt`,'green');
+}
+
+// ── Import whole playlist ──────────────────────────────
+async function spImportAll(playlistId, name) {
+  const token = await getValidToken(); if (!token) return;
+  const btn = document.getElementById('sp-import-bar-btn');
+  btn.textContent = 'Wird importiert…'; btn.disabled = true;
+  try {
+    const pl = spCurrentPl || { id: playlistId, total: 500 };
+    const items = [];
+    let offset = 0;
+    while (offset < pl.total) {
+      const r = await fetch(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&offset=${offset}&fields=items(track(id,name,artists,album(release_date),external_urls,is_local))`,
+        { headers:{Authorization:'Bearer '+token} }
+      );
+      const d = await r.json();
+      items.push(...(d.items||[]));
+      offset += 100;
+      if (!d.next) break;
+    }
+    let added=0, skipped=0;
+    for (const item of items) {
+      const t = item.track;
+      if (!t||t.is_local||!t.external_urls?.spotify) { skipped++; continue; }
+      const spotifyUrl = t.external_urls.spotify;
+      if (spAddedUrls.has(spotifyUrl)) { skipped++; continue; }
+      const year = parseInt((t.album?.release_date||'').split('-')[0]);
+      if (!t.name||!t.artists?.length||!year) { skipped++; continue; }
+      songs.push({ id:uid(), title:t.name, artist:t.artists.map(a=>a.name).join(', '), year, spotifyUrl });
+      spAddedUrls.add(spotifyUrl);
+      added++;
+    }
+    save(); render();
+    toast(`${added} Songs aus „${name}" importiert`,'green');
+    btn.textContent = `✓ ${added} importiert`;
+  } catch(e) { toast('Fehler: '+e.message,'err'); btn.textContent='Fehler'; }
+  finally { btn.disabled = false; }
+}
+
+async function spImportLiked() {
+  const token = await getValidToken(); if (!token) return;
+  const btn = document.getElementById('sp-import-bar-btn');
+  btn.textContent = 'Wird importiert…'; btn.disabled = true;
+  try {
+    const items = [];
+    let url = 'https://api.spotify.com/v1/me/tracks?limit=50';
+    while (url) {
+      const r = await fetch(url, { headers:{Authorization:'Bearer '+token} });
+      const d = await r.json();
+      items.push(...(d.items||[]).map(i=>i.track));
+      url = d.next || null;
+    }
+    let added=0, skipped=0;
+    for (const t of items) {
+      if (!t||!t.external_urls?.spotify) { skipped++; continue; }
+      const spotifyUrl = t.external_urls.spotify;
+      if (spAddedUrls.has(spotifyUrl)) { skipped++; continue; }
+      const year = parseInt((t.album?.release_date||'').split('-')[0]);
+      if (!t.name||!t.artists?.length||!year) { skipped++; continue; }
+      songs.push({ id:uid(), title:t.name, artist:t.artists.map(a=>a.name).join(', '), year, spotifyUrl });
+      spAddedUrls.add(spotifyUrl);
+      added++;
+    }
+    save(); render();
+    toast(`${added} Liked Songs importiert`,'green');
+    btn.textContent = `✓ ${added} importiert`;
+  } catch(e) { toast('Fehler: '+e.message,'err'); btn.textContent='Fehler'; }
+  finally { btn.disabled = false; }
+}
+
+// helpers
+const escJs   = s => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+const escAttr = s => s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
 // ══════════════════════════════════════════════════════
 // PWA – Manifest (injected dynamically so single-file works)
