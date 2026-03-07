@@ -727,7 +727,7 @@ const doConfirm    = () => { closeConfirm(); confirmCb && confirmCb(); };
 // ══════════════════════════════════════════════════════
 // SPOTIFY AUTH (PKCE)
 // ══════════════════════════════════════════════════════
-const SCOPES      = 'playlist-read-private playlist-read-collaborative';
+const SCOPES      = 'playlist-read-private playlist-read-collaborative user-library-read streaming user-read-playback-state user-modify-playback-state';
 const redirectUri = () => window.location.origin + window.location.pathname;
 
 const getToken    = () => {
@@ -985,7 +985,10 @@ async function generatePDF() {
       if (pos===0){doc.addPage();pageLabel(doc,`Rückseiten – Seite ${Math.floor(i/pp)+1} (Duplex)`);}
       const col=(cols-1)-(pos%cols);
       msgEl.textContent=`QR-Code ${i+1} von ${sorted.length}…`; await delay(10);
-      const qr=await makeQR(sorted[i].spotifyUrl);
+      const trackId = (sorted[i].spotifyUrl.match(/track\/([a-zA-Z0-9]+)/) || [])[1] || '';
+      const info = btoa(encodeURIComponent(sorted[i].title + '|' + sorted[i].artist + '|' + sorted[i].year));
+      const playerUrl = window.location.origin + window.location.pathname.replace('index.html','').replace(/\/[^/]*$\/','') + 'player.html?id=' + trackId + '&s=' + info;
+      const qr=await makeQR(playerUrl);
       drawBack(doc,qr,gx+col*(cW+gx),14+gy+Math.floor(pos/cols)*(cH+gy),cW,cH);
     }
     msgEl.textContent='Wird gespeichert…'; await delay(80);
