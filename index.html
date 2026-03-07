@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>HitOrder</title>
+
+  <!-- PWA -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="HitOrder">
+  <meta name="theme-color" content="#0e0d12">
+  <meta name="description" content="Musikraten – Karten erstellen & Playlists importieren">
+  <link rel="manifest" id="pwa-manifest">
+
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg:        #0e0d12;
+      --surface:   #1a1921;
+      --surface2:  #222130;
+      --border:    #2d2b3d;
+      --accent:    #f0b429;
+      --accent-dk: #c48f18;
+      --green:     #1DB954;
+      --red:       #e8574a;
+      --text:      #ece8f0;
+      --muted:     #7e7a93;
+      --r:         14px;
+      --r-sm:      8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      max-width: 480px;
+      margin: 0 auto;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 15% 10%, rgba(240,180,41,.10) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 85% 90%, rgba(29,185,84,.05) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ── */
+    .header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(14,13,18,.9);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .header-logo { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 900; letter-spacing: -.5px; }
+    .header-logo em { color: var(--accent); font-style: normal; }
+    .header-sub { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: .3px; }
+    .header-btns { display: flex; gap: 8px; }
+    .hbtn {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 16px; transition: all .15s; position: relative;
+    }
+    .hbtn:hover { background: var(--border); }
+    .hbtn.spotify-on { border-color: var(--green); background: rgba(29,185,84,.15); }
+    .hbtn.spotify-on::after {
+      content: ''; position: absolute; width: 8px; height: 8px;
+      background: var(--green); border-radius: 50%;
+      bottom: 1px; right: 1px; border: 1.5px solid var(--bg);
+    }
+
+    /* ── Main ── */
+    .main { position: relative; z-index: 1; padding: 20px 20px 120px; }
+
+    /* ── Stats ── */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 22px; }
+    .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 14px 10px; text-align: center; }
+    .stat-n { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 700; color: var(--accent); line-height: 1; }
+    .stat-l { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-top: 4px; }
+
+    /* ── Banners ── */
+    .banner {
+      display: flex; align-items: center; gap: 8px;
+      border-radius: 10px; padding: 10px 14px; margin-bottom: 16px;
+      font-size: 13px; line-height: 1.4;
+    }
+    .banner.green { background: rgba(29,185,84,.1); border: 1px solid rgba(29,185,84,.3); color: #6ae89b; }
+    .banner.yellow { background: rgba(240,180,41,.08); border: 1px solid rgba(240,180,41,.25); color: #d4a832; }
+    .banner.hidden { display: none; }
+    .banner .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; box-shadow: 0 0 6px var(--green); }
+    .banner b { color: #a8f5c4; }
+
+    .sec-hdr { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 14px; }
+
+    /* ── Song list ── */
+    .list { display: flex; flex-direction: column; gap: 9px; }
+    .song-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 14px; display: flex; align-items: center; gap: 13px; transition: border-color .18s; }
+    .song-card:hover { border-color: rgba(240,180,41,.3); }
+    .year-chip { min-width: 52px; height: 52px; background: linear-gradient(140deg, var(--accent) 0%, var(--accent-dk) 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; color: #1a1100; flex-shrink: 0; }
+    .song-info { flex: 1; min-width: 0; }
+    .song-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .song-artist { font-size: 12px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .song-btns { display: flex; gap: 6px; flex-shrink: 0; }
+    .icon-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; transition: all .15s; line-height: 1; }
+    .icon-btn:hover { background: var(--border); color: var(--text); }
+    .icon-btn.del:hover { background: rgba(232,87,74,.2); border-color: var(--red); color: var(--red); }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; padding: 50px 24px; display: none; }
+    .empty.show { display: block; }
+    .empty-ic { font-size: 52px; opacity: .3; margin-bottom: 14px; }
+    .empty-t { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--muted); margin-bottom: 6px; }
+    .empty-s { font-size: 13px; color: var(--muted); opacity: .65; }
+
+    /* ── FAB bar ── */
+    .fab-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; padding: 14px 20px 28px; background: linear-gradient(to top, var(--bg) 60%, transparent); display: flex; gap: 10px; z-index: 200; }
+    .fab { flex: 1; height: 52px; border-radius: 26px; border: none; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; transition: transform .15s; }
+    .fab:active { transform: scale(.96); }
+    .fab-add { background: var(--accent); color: #1a1100; flex: 0 0 auto; padding: 0 20px; }
+    .fab-playlist { background: var(--green); color: #fff; }
+    .fab-pdf { background: var(--surface); color: var(--text); border: 1px solid var(--border); flex: 0 0 52px; border-radius: 50%; font-size: 20px; padding: 0; }
+    .fab-pdf:disabled, .fab-pdf:disabled:active { opacity: .35; cursor: not-allowed; transform: none; }
+
+    /* ── Overlay / Sheet ── */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 300; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .25s; }
+    .overlay.open { opacity: 1; pointer-events: all; }
+    .sheet { background: var(--surface); border: 1px solid var(--border); border-radius: 22px 22px 0 0; width: 100%; max-width: 480px; padding: 0 20px 44px; transform: translateY(100%); transition: transform .32s cubic-bezier(.34,1.4,.64,1); max-height: 92dvh; overflow-y: auto; }
+    .overlay.open .sheet { transform: translateY(0); }
+    .sheet-grip { width: 38px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 18px; }
+    .sheet-title { font-family: 'Playfair Display', serif; font-size: 21px; font-weight: 700; margin-bottom: 22px; }
+
+    /* ── Form ── */
+    .fg { margin-bottom: 15px; }
+    .fl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); display: block; margin-bottom: 7px; }
+    .fi { width: 100%; background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--r-sm); padding: 13px 14px; font-family: 'DM Sans', sans-serif; font-size: 15px; color: var(--text); outline: none; transition: border-color .18s; -webkit-appearance: none; }
+    .fi:focus { border-color: var(--accent); }
+    .fi::placeholder { color: var(--muted); opacity: .5; }
+    .fi.ok    { border-color: #4ade80; }
+    .fi.bad   { border-color: var(--red); }
+    .fi.green { border-color: var(--green); }
+    .fhint { font-size: 11px; color: var(--muted); margin-top: 5px; opacity: .7; line-height: 1.4; }
+    .frow { display: flex; gap: 12px; }
+    .frow .fg { flex: 1; }
+    .sheet-actions { display: flex; gap: 10px; margin-top: 22px; }
+    .btn { flex: 1; height: 50px; border-radius: 12px; border: none; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform .12s; }
+    .btn:active { transform: scale(.97); }
+    .btn-ok      { background: var(--accent); color: #1a1100; }
+    .btn-spotify { background: var(--green);  color: #fff; }
+    .btn-no      { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+    .btn-danger  { background: var(--red); color: #fff; }
+
+    /* ── Setup guide (Spotify) ── */
+    .setup-step { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .setup-step:last-of-type { border-bottom: none; margin-bottom: 8px; }
+    .step-num { min-width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #1a1100; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+    .step-text { font-size: 13px; color: var(--muted); line-height: 1.55; }
+    .step-text strong { color: var(--text); }
+    .copy-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+    .copy-box { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-size: 11px; color: var(--accent); font-family: monospace; word-break: break-all; line-height: 1.4; }
+    .copy-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .copy-btn:hover { background: var(--border); color: var(--text); }
+    .logout-btn { width: 100%; margin-top: 14px; height: 44px; border-radius: 10px; background: rgba(232,87,74,.1); border: 1px solid rgba(232,87,74,.3); color: var(--red); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+    /* ── Import progress ── */
+    .import-progress { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 16px; display: none; }
+    .import-progress.show { display: block; }
+    .prog-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+    .prog-bar-wrap { background: var(--border); border-radius: 4px; height: 5px; overflow: hidden; }
+    .prog-bar { height: 100%; background: var(--green); border-radius: 4px; transition: width .3s; width: 0%; }
+
+    /* ── Confirm ── */
+    .confirm-wrap { position: fixed; inset: 0; background: rgba(0,0,0,.75); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 400; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+    .confirm-wrap.open { opacity: 1; pointer-events: all; }
+    .confirm-box { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 28px 22px 22px; width: 100%; max-width: 310px; text-align: center; transform: scale(.88); transition: transform .2s cubic-bezier(.34,1.4,.64,1); }
+    .confirm-wrap.open .confirm-box { transform: scale(1); }
+    .confirm-ic { font-size: 42px; margin-bottom: 10px; }
+    .confirm-t  { font-family: 'Playfair Display', serif; font-size: 19px; margin-bottom: 8px; }
+    .confirm-s  { font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+
+    /* ── Toast ── */
+    .toast { position: fixed; top: 72px; left: 50%; transform: translateX(-50%) translateY(-12px); background: var(--surface2); border: 1px solid var(--border); border-radius: 30px; padding: 10px 20px; font-size: 13px; font-weight: 500; z-index: 600; white-space: nowrap; opacity: 0; transition: all .28s cubic-bezier(.34,1.4,.64,1); pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.ok    { border-color: var(--accent); color: var(--accent); }
+    .toast.err   { border-color: var(--red);    color: var(--red); }
+    .toast.green { border-color: var(--green);  color: var(--green); }
+
+    /* ── PDF overlay ── */
+    .pdf-overlay { position: fixed; inset: 0; background: rgba(14,13,18,.92); z-index: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; opacity: 0; pointer-events: none; transition: opacity .25s; }
+    .pdf-overlay.show { opacity: 1; pointer-events: all; }
+    .pdf-ring { width: 58px; height: 58px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .75s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pdf-msg { font-size: 14px; color: var(--muted); text-align: center; max-width: 220px; line-height: 1.5; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── PWA Install Banner ── */
+    .install-banner {
+      position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+      width: calc(100% - 40px); max-width: 440px;
+      background: var(--surface2);
+      border: 1px solid rgba(240,180,41,.35);
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+      z-index: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+      animation: slideUp .4s cubic-bezier(.34,1.4,.64,1);
+    }
+    @keyframes slideUp { from { opacity:0; transform: translateX(-50%) translateY(20px); } }
+    .install-banner.hidden { display: none; }
+    .install-icon { font-size: 28px; flex-shrink: 0; }
+    .install-text { flex: 1; }
+    .install-text strong { font-size: 13px; display: block; margin-bottom: 2px; }
+    .install-text span { font-size: 11px; color: var(--muted); }
+    .install-btn {
+      background: var(--accent); color: #1a1100;
+      border: none; border-radius: 20px;
+      padding: 8px 14px; font-family: 'DM Sans', sans-serif;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .install-close {
+      background: none; border: none; color: var(--muted);
+      font-size: 18px; cursor: pointer; padding: 0 0 0 4px; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div>
+    <div class="header-logo">Hit<em>Order</em></div>
+    <div class="header-sub">Karten verwalten & PDF erstellen</div>
+  </div>
+  <div class="header-btns">
+    <button class="hbtn" id="spotify-hbtn" onclick="openSettings()" title="Spotify verbinden">🎵</button>
+    <button class="hbtn" onclick="openClearAll()" title="Alle löschen">🗑️</button>
+  </div>
+</header>
+
+<!-- Main -->
+<main class="main">
+  <div class="stats">
+    <div class="stat"><div class="stat-n" id="s-count">0</div><div class="stat-l">Lieder</div></div>
+    <div class="stat"><div class="stat-n" id="s-span">–</div><div class="stat-l">Jahres­spanne</div></div>
+    <div class="stat"><div class="stat-n" id="s-dec">0</div><div class="stat-l">Dekaden</div></div>
+  </div>
+
+  <div class="banner green hidden" id="spotify-badge">
+    <div class="dot"></div>
+    <span>Spotify verbunden als <b id="spotify-user">–</b></span>
+  </div>
+  <div class="banner yellow hidden" id="spotify-warn">
+    ⚠️ Playlist-Import benötigt Spotify. Tippe oben auf 🎵 um dich einmalig zu verbinden.
+  </div>
+
+  <div class="sec-hdr">Meine Lieder</div>
+
+  <div class="empty" id="empty">
+    <div class="empty-ic">🎵</div>
+    <div class="empty-t">Noch keine Lieder</div>
+    <div class="empty-s">Tippe auf „+ Lied" oder importiere<br>eine ganze Spotify-Playlist</div>
+  </div>
+  <div class="list" id="list"></div>
+</main>
+
+<!-- FAB bar -->
+<div class="fab-bar">
+  <button class="fab fab-add" onclick="openAdd()">+ Lied</button>
+  <button class="fab fab-playlist" onclick="openPlaylistImport()">🎵 Playlist importieren</button>
+  <button class="fab fab-pdf" id="pdf-btn" onclick="generatePDF()" disabled>📄</button>
+</div>
+
+<!-- Add/Edit Sheet -->
+<div class="overlay" id="sheet-overlay" onclick="bgTap(event,'sheet-overlay')">
+  <div class="sheet">
+    <div class="sheet-grip"></div>
+    <div class="sheet-title" id="sheet-title">Lied hinzufügen</div>
+    <input type="hidden" id="f-id">
+    <div class="frow">
+      <div class="fg" style="flex:2">
+        <label class="fl">Liedtitel *</label>
+        <input class="fi" id="f-title" type="text" placeholder="z. B. Bohemian Rhapsody" autocomplete="off">
+      </div>
+      <div class="fg" style="flex:1">
+        <label class="fl">Jahr *</label>
+        <input class="fi" id="f-year" type="number" placeholder="1984" min="1900" max="2099" autocomplete="off">
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">Interpret *</label>
+      <input class="fi" id="f-artist" type="text" placeholder="z. B. Queen" autocomplete="off">
+    </div>
+    <div class="fg">
+      <label class="fl">Spotify-Link *</label>
+      <input class="fi" id="f-url" type="url" placeholder="https://open.spotify.com/track/..." oninput="checkUrl(this)" autocomplete="off" spellcheck="false">
+      <div class="fhint">In Spotify: ··· → Teilen → Link kopieren</div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-no" onclick="closeSheet('sheet-overlay')">Abbrechen</button>
+      <button class="btn btn-ok" onclick="saveSong()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Spotify Settings Sheet -->
+<div class="overlay" id="settings-overlay" onclick="bgTap(event,'settings-overlay')">
+  <div class="sheet">
+    <div class="sheet-grip"></div>
+    <div class="sheet-title">Spotify verbinden</div>
+
+    <div id="setup-guide">
+      <div class="setup-step">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          Gehe zu <strong>developer.spotify.com/dashboard</strong> → Neue App erstellen.<br>
+          Name: <strong>HitOrder</strong> · Typ: <strong>Web API</strong>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          Unter <strong>Redirect URIs</strong> diese URL eintragen:
+          <div class="copy-row">
+            <div class="copy-box" id="redirect-uri-display">–</div>
+            <button class="copy-btn" onclick="copyUri()">📋</button>
+          </div>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <strong>Client ID</strong> aus dem Dashboard kopieren und hier eintragen:
+          <div style="margin-top:10px">
+            <input class="fi" id="s-clientid" type="text" placeholder="32-stellige Client ID" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn btn-no" onclick="closeSheet('settings-overlay')">Abbrechen</button>
+        <button class="btn btn-spotify" onclick="startAuth()">Mit Spotify verbinden</button>
+      </div>
+    </div>
+
+    <div id="connected-state" style="display:none">
+      <div class="banner green" style="margin-bottom:16px">
+        <div class="dot"></div>
+        <span>Verbunden als <b id="settings-user">–</b></span>
+      </div>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6">
+        Deine Spotify-Verbindung ist aktiv. Du kannst jetzt Playlists importieren.
+      </p>
+      <button class="logout-btn" onclick="spotifyLogout()">🔌 Verbindung trennen</button>
+      <div class="sheet-actions" style="margin-top:12px">
+        <button class="btn btn-ok" onclick="closeSheet('settings-overlay')">Schließen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Playlist Import Sheet -->
+<div class="overlay" id="playlist-overlay" onclick="bgTap(event,'playlist-overlay')">
+  <div class="sheet">
+    <div class="sheet-grip"></div>
+    <div class="sheet-title">Playlist importieren</div>
+    <div class="fg">
+      <label class="fl">Spotify Playlist-Link</label>
+      <input class="fi" id="p-url" type="url" placeholder="https://open.spotify.com/playlist/..." oninput="checkPUrl(this)" autocomplete="off" spellcheck="false">
+      <div class="fhint">In Spotify: Playlist öffnen → ··· → Teilen → Link kopieren</div>
+    </div>
+    <div class="import-progress" id="import-prog">
+      <div class="prog-label" id="prog-label">Lade Songs…</div>
+      <div class="prog-bar-wrap"><div class="prog-bar" id="prog-bar"></div></div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-no"      id="pl-cancel" onclick="closeSheet('playlist-overlay')">Abbrechen</button>
+      <button class="btn btn-spotify" id="pl-import" onclick="importPlaylist()">Importieren</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm -->
+<div class="confirm-wrap" id="conf-wrap">
+  <div class="confirm-box">
+    <div class="confirm-ic">🗑️</div>
+    <div class="confirm-t" id="conf-t">Lied löschen?</div>
+    <div class="confirm-s" id="conf-s">Diese Aktion kann nicht rückgängig gemacht werden.</div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-no" onclick="closeConfirm()" style="flex:1">Abbrechen</button>
+      <button class="btn btn-danger" id="conf-ok" onclick="doConfirm()" style="flex:1">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- PDF overlay -->
+<div class="pdf-overlay" id="pdf-overlay">
+  <div class="pdf-ring"></div>
+  <div class="pdf-msg" id="pdf-msg">PDF wird erstellt…</div>
+</div>
+
+<!-- PWA Install Banner -->
+<div class="install-banner hidden" id="install-banner">
+  <div class="install-icon">📲</div>
+  <div class="install-text">
+    <strong>App installieren</strong>
+    <span>Zum Homescreen hinzufügen</span>
+  </div>
+  <button class="install-btn" onclick="triggerInstall()">Installieren</button>
+  <button class="install-close" onclick="dismissInstall()">✕</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+let songs = [];
+try { songs = JSON.parse(localStorage.getItem('hitorder_songs') || '[]'); } catch(e) {}
+
+const save    = () => localStorage.setItem('hitorder_songs', JSON.stringify(songs));
+const uid     = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc     = s  => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const delay   = ms => new Promise(r => setTimeout(r, ms));
+
+// ══════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════
+function toast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════════════
+function render() {
+  document.getElementById('s-count').textContent = songs.length;
+  const yrs = songs.map(s => s.year);
+  document.getElementById('s-span').textContent = songs.length >= 2 ? Math.max(...yrs) - Math.min(...yrs) : '–';
+  document.getElementById('s-dec').textContent  = songs.length ? new Set(yrs.map(y => Math.floor(y/10)*10)).size : 0;
+  document.getElementById('pdf-btn').disabled   = !songs.length;
+  document.getElementById('empty').classList.toggle('show', !songs.length);
+
+  const sorted = [...songs].sort((a,b) => a.year - b.year);
+  document.getElementById('list').innerHTML = sorted.map(s => `
+    <div class="song-card">
+      <div class="year-chip">${s.year}</div>
+      <div class="song-info">
+        <div class="song-title">${esc(s.title)}</div>
+        <div class="song-artist">${esc(s.artist)}</div>
+      </div>
+      <div class="song-btns">
+        <button class="icon-btn" onclick="openEdit('${s.id}')">✏️</button>
+        <button class="icon-btn del" onclick="askDelete('${s.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// OVERLAYS
+// ══════════════════════════════════════════════════════
+const openOverlay  = id => document.getElementById(id).classList.add('open');
+const closeSheet   = id => document.getElementById(id).classList.remove('open');
+const bgTap        = (e,id) => { if (e.target === document.getElementById(id)) closeSheet(id); };
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') ['sheet-overlay','settings-overlay','playlist-overlay'].forEach(closeSheet);
+  if (e.key === 'Enter' && document.getElementById('sheet-overlay').classList.contains('open')) saveSong();
+});
+
+// ══════════════════════════════════════════════════════
+// ADD / EDIT
+// ══════════════════════════════════════════════════════
+const checkUrl  = el => { const v=el.value.trim(); el.className='fi'+(v ? v.includes('spotify.com/track')?' ok':' bad':''); };
+const checkPUrl = el => { const v=el.value.trim(); el.className='fi'+(v ? v.includes('spotify.com/playlist')?' green':' bad':''); };
+
+function openAdd() {
+  document.getElementById('sheet-title').textContent = 'Lied hinzufügen';
+  ['f-id','f-title','f-artist','f-year'].forEach(id => document.getElementById(id).value = '');
+  const u = document.getElementById('f-url'); u.value=''; u.className='fi';
+  openOverlay('sheet-overlay');
+  setTimeout(() => document.getElementById('f-title').focus(), 360);
+}
+
+function openEdit(id) {
+  const s = songs.find(x => x.id===id); if (!s) return;
+  document.getElementById('sheet-title').textContent = 'Lied bearbeiten';
+  document.getElementById('f-id').value     = id;
+  document.getElementById('f-title').value  = s.title;
+  document.getElementById('f-artist').value = s.artist;
+  document.getElementById('f-year').value   = s.year;
+  const u = document.getElementById('f-url'); u.value=s.spotifyUrl; u.className='fi ok';
+  openOverlay('sheet-overlay');
+}
+
+function saveSong() {
+  const title  = document.getElementById('f-title').value.trim();
+  const artist = document.getElementById('f-artist').value.trim();
+  const year   = parseInt(document.getElementById('f-year').value);
+  const url    = document.getElementById('f-url').value.trim();
+
+  if (!title||!artist||!year||!url)         { toast('Bitte alle Felder ausfüllen','err'); return; }
+  if (year<1900||year>2099)                 { toast('Ungültiges Jahr','err'); return; }
+  if (!url.includes('spotify.com'))         { toast('Kein gültiger Spotify-Link','err'); return; }
+
+  const editId = document.getElementById('f-id').value;
+  if (editId) {
+    const i = songs.findIndex(s=>s.id===editId);
+    if (i>=0) songs[i] = { id:editId, title, artist, year, spotifyUrl:url };
+    toast('Lied aktualisiert ✓');
+  } else {
+    songs.push({ id:uid(), title, artist, year, spotifyUrl:url });
+    toast('Lied hinzugefügt ✓');
+  }
+  save(); render(); closeSheet('sheet-overlay');
+}
+
+// ══════════════════════════════════════════════════════
+// DELETE / CLEAR
+// ══════════════════════════════════════════════════════
+let confirmCb = null;
+
+function askDelete(id) {
+  document.getElementById('conf-t').textContent  = 'Lied löschen?';
+  document.getElementById('conf-s').textContent  = 'Diese Aktion kann nicht rückgängig gemacht werden.';
+  document.getElementById('conf-ok').textContent = 'Löschen';
+  confirmCb = () => { songs=songs.filter(s=>s.id!==id); save(); render(); toast('Lied gelöscht'); };
+  document.getElementById('conf-wrap').classList.add('open');
+}
+
+function openClearAll() {
+  if (!songs.length) { toast('Keine Lieder vorhanden','err'); return; }
+  document.getElementById('conf-t').textContent  = 'Alle Lieder löschen?';
+  document.getElementById('conf-s').textContent  = `${songs.length} Lieder werden unwiderruflich gelöscht.`;
+  document.getElementById('conf-ok').textContent = 'Alle löschen';
+  confirmCb = () => { songs=[]; save(); render(); toast('Alle Lieder gelöscht'); };
+  document.getElementById('conf-wrap').classList.add('open');
+}
+
+const closeConfirm = () => document.getElementById('conf-wrap').classList.remove('open');
+const doConfirm    = () => { closeConfirm(); confirmCb && confirmCb(); };
+
+// ══════════════════════════════════════════════════════
+// SPOTIFY AUTH (PKCE)
+// ══════════════════════════════════════════════════════
+const SCOPES      = 'playlist-read-private playlist-read-collaborative';
+const redirectUri = () => window.location.origin + window.location.pathname;
+
+const getToken    = () => {
+  const tok = localStorage.getItem('sp_token');
+  const exp = parseInt(localStorage.getItem('sp_exp')||'0');
+  return tok && Date.now() < exp-60000 ? tok : null;
+};
+
+async function getValidToken() {
+  const t = getToken();
+  if (t) return t;
+  const ok = await refreshToken();
+  return ok ? getToken() : null;
+}
+
+function openSettings() {
+  document.getElementById('redirect-uri-display').textContent = redirectUri();
+  const connected = !!getToken();
+  document.getElementById('setup-guide').style.display     = connected ? 'none' : 'block';
+  document.getElementById('connected-state').style.display = connected ? 'block' : 'none';
+  if (connected) document.getElementById('settings-user').textContent = localStorage.getItem('sp_user')||'–';
+  openOverlay('settings-overlay');
+}
+
+function copyUri() {
+  navigator.clipboard.writeText(redirectUri())
+    .then(() => toast('URI kopiert ✓'))
+    .catch(() => toast('Kopieren fehlgeschlagen','err'));
+}
+
+function codeVerifier() {
+  const a = new Uint8Array(64); crypto.getRandomValues(a);
+  return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function codeChallenge(v) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v));
+  return btoa(String.fromCharCode(...new Uint8Array(d))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function startAuth() {
+  const clientId = document.getElementById('s-clientid').value.trim();
+  if (clientId.length < 10) { toast('Bitte gültige Client ID eingeben','err'); return; }
+  localStorage.setItem('sp_client_id', clientId);
+  const v = codeVerifier();
+  const c = await codeChallenge(v);
+  localStorage.setItem('sp_verifier', v);
+  const p = new URLSearchParams({ client_id:clientId, response_type:'code', redirect_uri:redirectUri(), code_challenge_method:'S256', code_challenge:c, scope:SCOPES });
+  window.location.href = 'https://accounts.spotify.com/authorize?' + p;
+}
+
+async function handleCallback() {
+  const p = new URLSearchParams(window.location.search);
+  const code = p.get('code'), err = p.get('error');
+  history.replaceState({}, '', window.location.pathname);
+  if (err || !code) { if(err) toast('Login abgebrochen','err'); return; }
+
+  const clientId  = localStorage.getItem('sp_client_id');
+  const verifier  = localStorage.getItem('sp_verifier');
+  if (!clientId||!verifier) { toast('Auth-Fehler','err'); return; }
+
+  try {
+    const r = await fetch('https://accounts.spotify.com/api/token', {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({ grant_type:'authorization_code', code, redirect_uri:redirectUri(), client_id:clientId, code_verifier:verifier })
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    localStorage.setItem('sp_token', d.access_token);
+    localStorage.setItem('sp_exp',   Date.now() + d.expires_in*1000);
+    if (d.refresh_token) localStorage.setItem('sp_refresh', d.refresh_token);
+    await fetchUser();
+    updateSpotifyUI();
+    toast('Spotify verbunden ✓','green');
+  } catch(e) { toast('Fehler: ' + e.message, 'err'); }
+}
+
+async function refreshToken() {
+  const clientId = localStorage.getItem('sp_client_id');
+  const refresh  = localStorage.getItem('sp_refresh');
+  if (!clientId||!refresh) return false;
+  try {
+    const r = await fetch('https://accounts.spotify.com/api/token', {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({ grant_type:'refresh_token', refresh_token:refresh, client_id:clientId })
+    });
+    if (!r.ok) return false;
+    const d = await r.json();
+    localStorage.setItem('sp_token', d.access_token);
+    localStorage.setItem('sp_exp',   Date.now() + d.expires_in*1000);
+    if (d.refresh_token) localStorage.setItem('sp_refresh', d.refresh_token);
+    return true;
+  } catch { return false; }
+}
+
+async function fetchUser() {
+  const t = await getValidToken(); if(!t) return;
+  try {
+    const d = await (await fetch('https://api.spotify.com/v1/me',{headers:{Authorization:'Bearer '+t}})).json();
+    localStorage.setItem('sp_user', d.display_name||d.id||'–');
+  } catch(e) {}
+}
+
+function spotifyLogout() {
+  ['sp_token','sp_exp','sp_refresh','sp_user'].forEach(k=>localStorage.removeItem(k));
+  updateSpotifyUI(); closeSheet('settings-overlay'); toast('Spotify getrennt');
+}
+
+function updateSpotifyUI() {
+  const on = !!getToken();
+  const user = localStorage.getItem('sp_user')||'–';
+  document.getElementById('spotify-badge').classList.toggle('hidden',!on);
+  document.getElementById('spotify-warn').classList.toggle('hidden', on);
+  document.getElementById('spotify-user').textContent = user;
+  document.getElementById('spotify-hbtn').classList.toggle('spotify-on', on);
+}
+
+// ══════════════════════════════════════════════════════
+// PLAYLIST IMPORT
+// ══════════════════════════════════════════════════════
+function openPlaylistImport() {
+  if (!getToken()) {
+    toast('Bitte zuerst Spotify verbinden 🎵','err');
+    return;
+  }
+  document.getElementById('p-url').value = '';
+  document.getElementById('p-url').className = 'fi';
+  document.getElementById('import-prog').classList.remove('show');
+  document.getElementById('pl-import').disabled = false;
+  document.getElementById('pl-cancel').textContent = 'Abbrechen';
+  openOverlay('playlist-overlay');
+}
+
+function extractPlId(url) { const m=url.match(/playlist\/([a-zA-Z0-9]+)/); return m?m[1]:null; }
+
+async function importPlaylist() {
+  const url = document.getElementById('p-url').value.trim();
+  const id  = extractPlId(url);
+  if (!id) { toast('Kein gültiger Playlist-Link','err'); return; }
+
+  const token = await getValidToken();
+  if (!token) { toast('Spotify-Session abgelaufen – bitte neu verbinden','err'); return; }
+
+  const prog     = document.getElementById('import-prog');
+  const progBar  = document.getElementById('prog-bar');
+  const progLbl  = document.getElementById('prog-label');
+  const importBtn = document.getElementById('pl-import');
+
+  prog.classList.add('show');
+  importBtn.disabled = true;
+  progBar.style.width = '5%';
+  progLbl.textContent = 'Lade Playlist-Info…';
+
+  try {
+    const headers = { Authorization: 'Bearer ' + token };
+
+    // 1. Get playlist meta
+    const info = await (await fetch(`https://api.spotify.com/v1/playlists/${id}?fields=name,tracks.total`, { headers })).json();
+    if (info.error) throw new Error(info.error.message || 'Playlist nicht gefunden');
+    const total = info.tracks.total;
+    const name  = info.name;
+
+    // 2. Fetch all tracks (pagination)
+    const allItems = [];
+    let offset = 0;
+    while (offset < total) {
+      const r = await fetch(
+        `https://api.spotify.com/v1/playlists/${id}/tracks?limit=100&offset=${offset}&fields=items(track(id,name,artists,album(release_date),external_urls,is_local))`,
+        { headers }
+      );
+      if (!r.ok) throw new Error('Fehler beim Laden der Songs');
+      const page = await r.json();
+      allItems.push(...page.items);
+      offset += 100;
+      progBar.style.width = Math.round((Math.min(offset,total)/total)*88) + '%';
+      progLbl.textContent = `Lade ${Math.min(offset,total)} / ${total} Songs…`;
+    }
+
+    progBar.style.width = '94%';
+    progLbl.textContent = 'Verarbeite Songs…';
+    await delay(60);
+
+    // 3. Convert and deduplicate
+    const existingUrls = new Set(songs.map(s=>s.spotifyUrl));
+    let added=0, skipped=0;
+
+    for (const item of allItems) {
+      const t = item.track;
+      if (!t || t.is_local || !t.external_urls?.spotify) { skipped++; continue; }
+      const spotifyUrl = t.external_urls.spotify;
+      if (existingUrls.has(spotifyUrl)) { skipped++; continue; }
+      const year = parseInt((t.album?.release_date||'').split('-')[0]);
+      if (!t.name || !t.artists?.length || !year) { skipped++; continue; }
+      songs.push({ id:uid(), title:t.name, artist:t.artists.map(a=>a.name).join(', '), year, spotifyUrl });
+      existingUrls.add(spotifyUrl);
+      added++;
+    }
+
+    save(); render();
+    progBar.style.width = '100%';
+    progLbl.textContent = `✓ ${added} Songs importiert${skipped?`, ${skipped} übersprungen`:''}`;
+    document.getElementById('pl-cancel').textContent = 'Schließen';
+    importBtn.disabled = false;
+    toast(`${added} Songs aus „${name}" importiert`,'green');
+
+  } catch(err) {
+    progLbl.textContent = '❌ ' + err.message;
+    importBtn.disabled = false;
+    toast('Fehler: ' + err.message, 'err');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// QR + PDF
+// ══════════════════════════════════════════════════════
+function makeQR(text) {
+  return new Promise((res,rej) => {
+    const w = document.createElement('div');
+    w.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+    document.body.appendChild(w);
+    try {
+      new QRCode(w, { text, width:320, height:320, colorDark:'#000', colorLight:'#fff', correctLevel:QRCode.CorrectLevel.M });
+      setTimeout(() => {
+        const c=w.querySelector('canvas'), i=w.querySelector('img');
+        const src=c?c.toDataURL('image/png'):(i?i.src:null);
+        document.body.removeChild(w); res(src);
+      }, 120);
+    } catch(e) { document.body.removeChild(w); rej(e); }
+  });
+}
+
+async function generatePDF() {
+  if (!songs.length) return;
+  const overlay = document.getElementById('pdf-overlay');
+  const msgEl   = document.getElementById('pdf-msg');
+  overlay.classList.add('show');
+  try {
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF({orientation:'p',unit:'mm',format:'a4'});
+    const cW=85.6,cH=54,cols=2,rows=4;
+    const gx=(210-cols*cW)/(cols+1);
+    const gy=(297-rows*cH-14)/(rows+1)+2;
+    const pp=cols*rows;
+    const sorted=[...songs].sort((a,b)=>a.year-b.year);
+
+    msgEl.textContent='Vorderseiten werden erstellt…'; await delay(50);
+    for (let i=0;i<sorted.length;i++) {
+      const pos=i%pp;
+      if (pos===0&&i>0) doc.addPage();
+      if (pos===0) pageLabel(doc,`Vorderseiten – Seite ${Math.floor(i/pp)+1}`);
+      drawFront(doc,sorted[i],gx+(pos%cols)*(cW+gx),14+gy+Math.floor(pos/cols)*(cH+gy),cW,cH);
+    }
+    for (let i=0;i<sorted.length;i++) {
+      const pos=i%pp;
+      if (pos===0){doc.addPage();pageLabel(doc,`Rückseiten – Seite ${Math.floor(i/pp)+1} (Duplex)`);}
+      const col=(cols-1)-(pos%cols);
+      msgEl.textContent=`QR-Code ${i+1} von ${sorted.length}…`; await delay(10);
+      const qr=await makeQR(sorted[i].spotifyUrl);
+      drawBack(doc,qr,gx+col*(cW+gx),14+gy+Math.floor(pos/cols)*(cH+gy),cW,cH);
+    }
+    msgEl.textContent='Wird gespeichert…'; await delay(80);
+    doc.save('HitOrder_Karten.pdf'); toast('PDF erstellt ✓');
+  } catch(e) { toast('Fehler: '+e.message,'err'); }
+  finally { overlay.classList.remove('show'); }
+}
+
+function pageLabel(doc,text) {
+  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(160,155,175);
+  doc.text('HitOrder  ·  '+text,105,9,{align:'center'});
+}
+function cutMarks(doc,x,y,w,h,g) {
+  const d=4;doc.setDrawColor(g,g,g);doc.setLineWidth(0.15);
+  [[x,y,x-d,y],[x,y,x,y-d],[x+w,y,x+w+d,y],[x+w,y,x+w,y-d],
+   [x,y+h,x-d,y+h],[x,y+h,x,y+h+d],[x+w,y+h,x+w+d,y+h],[x+w,y+h,x+w,y+h+d]]
+  .forEach(([a,b,c,d])=>doc.line(a,b,c,d));
+}
+function drawFront(doc,s,x,y,w,h) {
+  doc.setFillColor(255,255,255);doc.setDrawColor(210,208,220);doc.setLineWidth(0.25);doc.roundedRect(x,y,w,h,3,3,'FD');
+  doc.setFillColor(240,180,41);doc.roundedRect(x,y,w,11,3,3,'F');doc.rect(x,y+7,w,4,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(80,50,0);doc.text('HITORDER',x+4,y+7.5);
+  doc.setFontSize(8.5);doc.setTextColor(60,35,0);doc.text(String(s.year),x+w-4,y+7.5,{align:'right'});
+  doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(18,16,28);
+  const tl=doc.splitTextToSize(s.title,w-8).slice(0,2);doc.text(tl,x+4,y+20);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(110,105,130);
+  doc.text(doc.splitTextToSize(s.artist,w-8)[0],x+4,y+20+tl.length*5.5);
+  doc.setFont('helvetica','normal');doc.setFontSize(34);doc.setTextColor(240,210,140);doc.text('♪',x+w-15,y+h-4);
+  doc.setDrawColor(220,218,232);doc.setLineWidth(0.2);doc.line(x+4,y+h-9,x+w-4,y+h-9);
+  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(180,175,200);doc.text(String(s.year),x+4,y+h-4);
+  cutMarks(doc,x,y,w,h,185);
+}
+function drawBack(doc,qr,x,y,w,h) {
+  doc.setFillColor(16,15,21);doc.setDrawColor(42,40,58);doc.setLineWidth(0.25);doc.roundedRect(x,y,w,h,3,3,'FD');
+  doc.setFillColor(26,25,36);
+  for(let px=x+5;px<x+w-3;px+=6.5) for(let py=y+4;py<y+h-3;py+=6.5) doc.circle(px,py,0.55,'F');
+  const aL=7;doc.setDrawColor(240,180,41);doc.setLineWidth(0.8);
+  [[x+3,y+3,x+3+aL,y+3],[x+3,y+3,x+3,y+3+aL],[x+w-3,y+3,x+w-3-aL,y+3],[x+w-3,y+3,x+w-3,y+3+aL],
+   [x+3,y+h-3,x+3+aL,y+h-3],[x+3,y+h-3,x+3,y+h-3-aL],[x+w-3,y+h-3,x+w-3-aL,y+h-3],[x+w-3,y+h-3,x+w-3,y+h-3-aL]]
+  .forEach(([a,b,c,d])=>doc.line(a,b,c,d));
+  if(qr){const qs=33,qx=x+(w-qs)/2,qy=y+(h-qs)/2-2;doc.setFillColor(255,255,255);doc.roundedRect(qx-2,qy-2,qs+4,qs+4,2,2,'F');doc.addImage(qr,'PNG',qx,qy,qs,qs);}
+  doc.setFont('helvetica','bold');doc.setFontSize(5.8);doc.setTextColor(240,180,41);doc.text('SCANNEN & HÖREN',x+w/2,y+h-4,{align:'center'});
+  cutMarks(doc,x,y,w,h,90);
+}
+
+// ══════════════════════════════════════════════════════
+// PWA – Manifest (injected dynamically so single-file works)
+// ══════════════════════════════════════════════════════
+(function injectManifest() {
+  const manifest = {
+    name: 'HitOrder',
+    short_name: 'HitOrder',
+    description: 'Musikraten – Karten erstellen & Playlists importieren',
+    start_url: window.location.pathname,
+    display: 'standalone',
+    orientation: 'portrait',
+    background_color: '#0e0d12',
+    theme_color: '#0e0d12',
+    icons: [
+      {
+        src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%230e0d12'/%3E%3Ctext x='256' y='340' font-size='280' text-anchor='middle' fill='%23f0b429'%3E%E2%99%AA%3C/text%3E%3C/svg%3E",
+        sizes: '512x512',
+        type: 'image/svg+xml',
+        purpose: 'any maskable'
+      }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  document.getElementById('pwa-manifest').href = url;
+})();
+
+// ══════════════════════════════════════════════════════
+// PWA – Service Worker (offline support)
+// ══════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  const swCode = `
+const CACHE = 'hitorder-v1';
+const ASSETS = [
+  'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap',
+  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+];
+
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(c => {
+      return Promise.allSettled(ASSETS.map(url => c.add(url).catch(()=>{})));
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', e => {
+  // Don't intercept Spotify API calls
+  if (e.request.url.includes('spotify.com') || e.request.url.includes('accounts.spotify')) return;
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => cached))
+  );
+});
+  `;
+  const swBlob = new Blob([swCode], {type:'application/javascript'});
+  const swUrl  = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl, {scope: '/'})
+    .catch(() => {}); // silently fail if scope doesn't match
+}
+
+// ══════════════════════════════════════════════════════
+// PWA – Install prompt
+// ══════════════════════════════════════════════════════
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show banner after a short delay if not dismissed before
+  if (!localStorage.getItem('pwa_dismissed')) {
+    setTimeout(() => {
+      document.getElementById('install-banner').classList.remove('hidden');
+    }, 2500);
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').classList.add('hidden');
+  deferredPrompt = null;
+  toast('App installiert ✓', 'green');
+});
+
+async function triggerInstall() {
+  if (!deferredPrompt) {
+    toast('Öffne das Browser-Menü → „Zum Startbildschirm hinzufügen"');
+    return;
+  }
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('install-banner').classList.add('hidden');
+  if (outcome === 'accepted') toast('App wird installiert…', 'green');
+}
+
+function dismissInstall() {
+  document.getElementById('install-banner').classList.add('hidden');
+  localStorage.setItem('pwa_dismissed', '1');
+}
+// ══════════════════════════════════════════════════════
+(async () => {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('code') || p.get('error')) await handleCallback();
+  if (getToken()) fetchUser().then(updateSpotifyUI);
+  updateSpotifyUI();
+  render();
+})();
+</script>
+</body>
+</html>
