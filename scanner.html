@@ -9,220 +9,112 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0e0d12">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg:      #0e0d12;
-      --surface: #1a1921;
-      --border:  #2d2b3d;
-      --accent:  #f0b429;
-      --green:   #1DB954;
-      --red:     #e8574a;
-      --text:    #ece8f0;
-      --muted:   #7e7a93;
+      --bg:      #0e0d12; --surface: #1a1921; --border:  #2d2b3d;
+      --accent:  #f0b429; --green:   #1DB954; --red:     #e8574a;
+      --text:    #ece8f0; --muted:   #7e7a93;
     }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; overflow: hidden; max-width: 480px; margin: 0 auto; }
 
-    html, body {
-      height: 100%; background: var(--bg); color: var(--text);
-      font-family: 'DM Sans', sans-serif; overflow: hidden;
-      max-width: 480px; margin: 0 auto;
-    }
-
-    /* ── Logo ── */
-    .logo {
-      position: fixed; top: 0; left: 50%; transform: translateX(-50%);
-      width: 100%; max-width: 480px;
-      padding: 18px 20px 0;
-      display: flex; align-items: center; justify-content: space-between;
-      z-index: 50;
-    }
+    /* Logo */
+    .logo { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; padding: 18px 20px 0; display: flex; align-items: center; justify-content: space-between; z-index: 50; }
     .logo-text { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 900; }
     .logo-text em { color: var(--accent); font-style: normal; }
     .logo-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
-    /* ── Kamera-Vollbild ── */
-    #video {
-      position: fixed; inset: 0;
-      width: 100%; height: 100%;
-      object-fit: cover;
-      z-index: 0;
-      opacity: 0;
-      transition: opacity .5s;
-    }
+    /* Video */
+    #video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0; transition: opacity .5s; }
     #video.ready { opacity: 1; }
 
-    /* Dunkles Overlay über dem Video */
+    /* Overlay */
     .cam-overlay {
       position: fixed; inset: 0; z-index: 1;
-      background: linear-gradient(
-        to bottom,
-        rgba(14,13,18,.85) 0%,
-        rgba(14,13,18,.25) 30%,
-        rgba(14,13,18,.25) 70%,
-        rgba(14,13,18,.9)  100%
-      );
+      background: linear-gradient(to bottom,
+        rgba(14,13,18,.85) 0%, rgba(14,13,18,.15) 28%,
+        rgba(14,13,18,.15) 72%, rgba(14,13,18,.9) 100%);
     }
 
-    /* ── Scan-Rahmen ── */
+    /* Scan Rahmen */
     .scan-frame {
-      position: fixed;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -54%);
-      width: min(72vw, 260px);
-      aspect-ratio: 1;
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -56%);
+      width: min(68vw, 240px); aspect-ratio: 1;
       z-index: 10;
     }
-    .scan-frame::before,
-    .scan-frame::after,
-    .scan-corner-br,
-    .scan-corner-bl {
-      content: '';
-      position: absolute;
-      width: 28px; height: 28px;
-      border-color: var(--accent);
-      border-style: solid;
-    }
-    /* top-left */
-    .scan-frame::before { top: 0; left: 0; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
-    /* top-right */
-    .scan-frame::after  { top: 0; right: 0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
-    /* bottom-right */
-    .scan-corner-br     { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
-    /* bottom-left */
-    .scan-corner-bl     { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+    .c { position: absolute; width: 26px; height: 26px; border-color: var(--accent); border-style: solid; transition: border-color .25s; }
+    .c.tl { top:0; left:0;  border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+    .c.tr { top:0; right:0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+    .c.bl { bottom:0; left:0;  border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+    .c.br { bottom:0; right:0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+    .scan-frame.found .c { border-color: var(--green); }
 
-    /* Scan-Linie */
     .scan-line {
-      position: absolute;
-      left: 6px; right: 6px; height: 2px;
+      position: absolute; left: 8px; right: 8px; height: 2px;
       background: linear-gradient(to right, transparent, var(--accent), transparent);
-      border-radius: 1px;
+      border-radius: 1px; box-shadow: 0 0 8px rgba(240,180,41,.6);
       animation: scanMove 2s ease-in-out infinite;
-      box-shadow: 0 0 8px rgba(240,180,41,.6);
-    }
-    @keyframes scanMove {
-      0%   { top: 8px;  opacity: .4; }
-      50%  { top: calc(100% - 10px); opacity: 1; }
-      100% { top: 8px;  opacity: .4; }
     }
     .scan-frame.found .scan-line { background: linear-gradient(to right, transparent, var(--green), transparent); box-shadow: 0 0 12px rgba(29,185,84,.8); animation: none; top: 50%; }
-    .scan-frame.found::before,
-    .scan-frame.found::after,
-    .scan-frame.found .scan-corner-br,
-    .scan-frame.found .scan-corner-bl { border-color: var(--green); transition: border-color .2s; }
+    @keyframes scanMove { 0%{top:8px;opacity:.4} 50%{top:calc(100% - 10px);opacity:1} 100%{top:8px;opacity:.4} }
 
-    /* ── Statustext unter dem Rahmen ── */
     .scan-hint {
-      position: fixed;
-      top: calc(50% + min(36vw, 130px) - 18px + 18px);
-      left: 50%; transform: translate(-50%, 28px);
-      z-index: 10; text-align: center;
-      font-size: 13px; color: rgba(255,255,255,.55);
-      letter-spacing: .3px; white-space: nowrap;
-      transition: color .2s;
+      position: fixed; top: calc(50% - min(34vw, 120px) + 30px); left: 50%;
+      transform: translate(-50%, 60px);
+      z-index: 10; font-size: 13px; color: rgba(255,255,255,.5);
+      text-align: center; white-space: nowrap; transition: color .2s;
     }
-    .scan-hint.active { color: var(--green); }
+    .scan-hint.ok { color: var(--green); }
+    .scan-hint.err { color: var(--red); }
 
-    /* ── Bottom card ── */
-    .bottom-card {
-      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-      width: 100%; max-width: 480px;
-      padding: 20px 20px 36px;
-      z-index: 20;
-    }
+    /* Bottom */
+    .bottom { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; padding: 16px 20px 40px; z-index: 20; }
 
-    /* Zuletzt gescannt */
-    .last-scan {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 14px 16px;
+    .result-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 14px 16px;
       display: flex; align-items: center; gap: 12px;
-      margin-bottom: 12px;
-      opacity: 0; pointer-events: none;
-      transform: translateY(10px);
-      transition: opacity .3s, transform .3s;
+      margin-bottom: 12px; opacity: 0; pointer-events: none;
+      transform: translateY(8px); transition: opacity .3s, transform .3s;
     }
-    .last-scan.show { opacity: 1; pointer-events: all; transform: translateY(0); }
-    .last-scan-icon {
-      width: 40px; height: 40px; border-radius: 10px;
-      background: rgba(29,185,84,.15); border: 1px solid rgba(29,185,84,.25);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
-    }
-    .last-scan-info { flex: 1; min-width: 0; }
-    .last-scan-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 2px; }
-    .last-scan-url   { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .last-scan-btn {
-      background: var(--green); color: #fff; border: none;
-      border-radius: 20px; padding: 8px 14px;
-      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
-      cursor: pointer; flex-shrink: 0; white-space: nowrap;
-    }
+    .result-card.show { opacity: 1; pointer-events: all; transform: translateY(0); }
+    .result-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(29,185,84,.15); border: 1px solid rgba(29,185,84,.25); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .result-info { flex: 1; min-width: 0; }
+    .result-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 3px; }
+    .result-text  { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .result-sub   { font-size: 11px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .open-btn { background: var(--green); color: #fff; border: none; border-radius: 20px; padding: 9px 16px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
 
-    /* Haupt-Button */
-    .scan-btn {
-      width: 100%; height: 52px; border-radius: 26px;
-      background: var(--green); border: none; color: #fff;
+    .main-btn {
+      width: 100%; height: 52px; border-radius: 26px; border: none;
       font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
-      cursor: pointer; transition: opacity .15s, transform .12s;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: opacity .15s, transform .12s;
     }
-    .scan-btn:active { transform: scale(.97); }
-    .scan-btn.scanning { background: var(--surface); border: 1.5px solid var(--border); color: var(--red); }
+    .main-btn:active { transform: scale(.97); }
+    .main-btn.start   { background: var(--green); color: #fff; }
+    .main-btn.running { background: var(--surface); border: 1.5px solid var(--border); color: var(--red); }
 
-    /* ── Fehler-Toast ── */
-    .toast {
-      position: fixed; bottom: 130px; left: 50%; transform: translateX(-50%);
-      background: var(--surface); border: 1px solid var(--red); color: var(--red);
-      border-radius: 20px; padding: 10px 18px; font-size: 13px;
-      z-index: 100; white-space: nowrap;
-      opacity: 0; pointer-events: none; transition: opacity .25s;
-    }
-    .toast.show { opacity: 1; }
-
-    /* ── Startscreen (vor Kamera) ── */
+    /* Start screen */
     .start-screen {
-      position: fixed; inset: 0; z-index: 30;
-      background: var(--bg);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 80px 28px 32px; gap: 0;
-      transition: opacity .4s;
+      position: fixed; inset: 0; z-index: 30; background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 80px 28px 40px; transition: opacity .4s;
     }
     .start-screen.hidden { opacity: 0; pointer-events: none; }
-
-    .start-icon { font-size: 72px; margin-bottom: 24px; }
-    .start-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 26px; font-weight: 900; text-align: center;
-      margin-bottom: 10px; line-height: 1.2;
-    }
+    .start-icon  { font-size: 70px; margin-bottom: 24px; }
+    .start-title { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 900; text-align: center; margin-bottom: 10px; }
     .start-title em { color: var(--accent); font-style: normal; }
-    .start-sub {
-      font-size: 14px; color: var(--muted); text-align: center;
-      line-height: 1.6; margin-bottom: 36px; max-width: 300px;
-    }
-    .start-btn {
-      width: 100%; max-width: 300px; height: 54px; border-radius: 27px;
-      background: var(--green); border: none; color: #fff;
-      font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600;
-      cursor: pointer; transition: opacity .15s;
-    }
-    .start-btn:hover { opacity: .88; }
+    .start-sub   { font-size: 14px; color: var(--muted); text-align: center; line-height: 1.6; margin-bottom: 36px; max-width: 300px; }
+    .start-btn   { width: 100%; max-width: 300px; height: 54px; border-radius: 27px; background: var(--green); border: none; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; }
 
-    /* ── hidden canvas für jsQR ── */
     #canvas { display: none; }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spin { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation: spin .7s linear infinite; }
   </style>
 </head>
 <body>
 
-<!-- Logo -->
 <div class="logo">
   <div>
     <div class="logo-text">Hit<em>Order</em></div>
@@ -230,128 +122,147 @@
   </div>
 </div>
 
-<!-- Video feed -->
 <video id="video" playsinline autoplay muted></video>
 <canvas id="canvas"></canvas>
 <div class="cam-overlay"></div>
 
-<!-- Scan frame -->
 <div class="scan-frame" id="scan-frame">
   <div class="scan-line"></div>
-  <div class="scan-corner-br"></div>
-  <div class="scan-corner-bl"></div>
+  <div class="c tl"></div><div class="c tr"></div>
+  <div class="c bl"></div><div class="c br"></div>
 </div>
-<div class="scan-hint" id="scan-hint">Karte ins Bild halten</div>
+<div class="scan-hint" id="hint">Karte ins Bild halten</div>
 
-<!-- Bottom -->
-<div class="bottom-card">
-  <div class="last-scan" id="last-scan">
-    <div class="last-scan-icon">✅</div>
-    <div class="last-scan-info">
-      <div class="last-scan-label">Zuletzt gescannt</div>
-      <div class="last-scan-url" id="last-url">–</div>
+<div class="bottom">
+  <div class="result-card" id="result-card">
+    <div class="result-icon">🎵</div>
+    <div class="result-info">
+      <div class="result-label">Erkannt</div>
+      <div class="result-text" id="res-title">–</div>
+      <div class="result-sub"  id="res-sub">–</div>
     </div>
-    <button class="last-scan-btn" id="last-open-btn">Öffnen</button>
+    <button class="open-btn" id="open-btn">Öffnen</button>
   </div>
-  <button class="scan-btn scanning" id="scan-btn" onclick="toggleScan()">
-    ⏹ Scan stoppen
+  <button class="main-btn start" id="main-btn" onclick="toggleScan()">
+    📷 Kamera starten
   </button>
 </div>
 
-<!-- Startscreen -->
 <div class="start-screen" id="start-screen">
   <div class="start-icon">📷</div>
   <div class="start-title">QR-<em>Scanner</em></div>
-  <div class="start-sub">Halte die Kamera auf einen HitOrder QR-Code – der Song startet sofort.</div>
-  <button class="start-btn" onclick="startScanner()">Kamera starten</button>
+  <div class="start-sub">Halte die Kamera auf einen HitOrder QR-Code – der Song startet automatisch.</div>
+  <button class="start-btn" onclick="startScan()">Kamera starten</button>
 </div>
 
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-
 <script>
-const video   = document.getElementById('video');
-const canvas  = document.getElementById('canvas');
-const ctx     = canvas.getContext('2d', { willReadFrequently: true });
-const frame   = document.getElementById('scan-frame');
-const hint    = document.getElementById('scan-hint');
-const btn     = document.getElementById('scan-btn');
-const lastDiv = document.getElementById('last-scan');
-const lastUrl = document.getElementById('last-url');
-const lastBtn = document.getElementById('last-open-btn');
+// jsQR direkt einbetten als Fallback – CDN wird zuerst versucht
+const JSQR_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
 
-let scanning    = false;
-let rafId       = null;
-let cooldown    = false;
-let lastScanned = null;
-let stream      = null;
+const video  = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d', { willReadFrequently: true });
+const sf     = document.getElementById('scan-frame');
+const hint   = document.getElementById('hint');
+const mainBtn= document.getElementById('main-btn');
 
-// ── Toast ───────────────────────────────────────────────
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._t);
-  t._t = setTimeout(() => t.classList.remove('show'), 3000);
+let scanning  = false;
+let stream    = null;
+let scanTimer = null;
+let cooldown  = false;
+
+// ── jsQR laden ──────────────────────────────────────────
+function loadJsQR() {
+  return new Promise((resolve, reject) => {
+    if (window.jsQR) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = JSQR_CDN;
+    s.onload  = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
 }
 
 // ── Kamera starten ──────────────────────────────────────
-async function startScanner() {
+async function startScan() {
+  document.getElementById('start-screen').classList.add('hidden');
+  setHint('Lade Scanner…');
+
   try {
+    await loadJsQR();
+  } catch {
+    setHint('jsQR konnte nicht geladen werden', 'err');
+    return;
+  }
+
+  try {
+    // Rückkamera bevorzugen, aber auf alle Kameras zurückfallen
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
+      video: {
+        facingMode: { ideal: 'environment' },
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 }
+      }
+    }).catch(() => navigator.mediaDevices.getUserMedia({ video: true }));
+
     video.srcObject = stream;
-    video.addEventListener('loadedmetadata', () => {
-      video.classList.add('ready');
-      document.getElementById('start-screen').classList.add('hidden');
-      scanning = true;
-      btn.className = 'scan-btn scanning';
-      btn.innerHTML = '⏹ Scan stoppen';
-      tick();
-    });
+    await new Promise(r => { video.onloadedmetadata = r; });
+    await video.play();
+
+    video.classList.add('ready');
+    scanning = true;
+    mainBtn.className = 'main-btn running';
+    mainBtn.innerHTML = '⏹ Scan stoppen';
+    setHint('Karte ins Bild halten');
+    scheduleScan();
+
   } catch(e) {
-    showToast('Kamera-Zugriff verweigert');
+    setHint('Kamera-Zugriff verweigert', 'err');
+    document.getElementById('start-screen').classList.remove('hidden');
   }
 }
 
-// ── Scan stoppen ────────────────────────────────────────
-function stopScanner() {
+function stopScan() {
   scanning = false;
-  cancelAnimationFrame(rafId);
+  clearTimeout(scanTimer);
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   video.classList.remove('ready');
-  btn.className = 'scan-btn';
-  btn.innerHTML = '📷 Scan starten';
-  hint.textContent = 'Scan gestoppt';
-  hint.classList.remove('active');
+  video.srcObject = null;
+  mainBtn.className = 'main-btn start';
+  mainBtn.innerHTML = '📷 Kamera starten';
+  setHint('Scan gestoppt');
 }
 
 function toggleScan() {
-  if (scanning) stopScanner();
-  else startScanner();
+  if (scanning) stopScan();
+  else startScan();
 }
 
-// ── Scan-Loop ───────────────────────────────────────────
-function tick() {
+// ── Scan-Schleife (per setTimeout, nicht RAF) ───────────
+// RAF läuft zu schnell und blockiert; alle 200ms reicht für QR
+function scheduleScan() {
   if (!scanning) return;
-  rafId = requestAnimationFrame(tick);
+  scanTimer = setTimeout(() => {
+    doScan();
+    scheduleScan();
+  }, 200);
+}
 
-  if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+function doScan() {
+  if (!scanning || video.readyState < 2 || video.videoWidth === 0) return;
 
+  // Vollbild auf Canvas zeichnen
   canvas.width  = video.videoWidth;
   canvas.height = video.videoHeight;
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(video, 0, 0);
 
-  // Nur mittleren Bereich scannen (schneller + genauer)
-  const size = Math.min(canvas.width, canvas.height) * 0.7;
-  const ox   = (canvas.width  - size) / 2;
-  const oy   = (canvas.height - size) / 2;
-  const imageData = ctx.getImageData(ox, oy, size, size);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  const code = jsQR(imageData.data, imageData.width, imageData.height, {
-    inversionAttempts: 'dontInvert'
-  });
+  // Erst normal, dann invertiert versuchen
+  let code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+  if (!code) {
+    code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'onlyInvert' });
+  }
 
   if (code && code.data && !cooldown) {
     handleQR(code.data);
@@ -360,54 +271,50 @@ function tick() {
 
 // ── QR erkannt ──────────────────────────────────────────
 function handleQR(url) {
-  // Nur HitOrder player.html URLs akzeptieren
+  // Nur player.html URLs akzeptieren
   if (!url.includes('player.html')) {
-    showToast('Kein HitOrder QR-Code');
+    setHint('Kein HitOrder QR-Code', 'err');
+    setTimeout(() => setHint('Karte ins Bild halten'), 2000);
     return;
   }
 
-  // Cooldown – nicht 50x pro Sekunde auslösen
   cooldown = true;
-  setTimeout(() => { cooldown = false; }, 2500);
+  setTimeout(() => { cooldown = false; }, 3000);
+
+  // Haptisches Feedback (falls verfügbar)
+  try { navigator.vibrate && navigator.vibrate(80); } catch {}
 
   // Visuelles Feedback
-  frame.classList.add('found');
-  hint.textContent = 'QR-Code erkannt!';
-  hint.classList.add('active');
-  setTimeout(() => {
-    frame.classList.remove('found');
-    hint.textContent = 'Karte ins Bild halten';
-    hint.classList.remove('active');
-  }, 1800);
+  sf.classList.add('found');
+  setHint('Erkannt! Öffne Player…', 'ok');
+  setTimeout(() => { sf.classList.remove('found'); }, 2000);
 
-  lastScanned = url;
-
-  // Zuletzt-gescannt-Karte zeigen
+  // Song-Info aus der URL lesen
+  let title = '', sub = '';
   try {
     const u = new URL(url);
     const s = u.searchParams.get('s') || '';
-    let label = url;
     if (s) {
       const dec = decodeURIComponent(atob(s));
-      const [title, artist, year] = dec.split('|');
-      if (title && artist) label = `${title} – ${artist} (${year})`;
+      const parts = dec.split('|');
+      title = parts[0] || '';
+      sub   = (parts[1] || '') + (parts[2] ? '  ·  ' + parts[2] : '');
     }
-    lastUrl.textContent = label;
-  } catch { lastUrl.textContent = url; }
+  } catch {}
 
-  lastDiv.classList.add('show');
-  lastBtn.onclick = () => window.location.href = lastScanned;
+  document.getElementById('res-title').textContent = title || 'Song erkannt';
+  document.getElementById('res-sub').textContent   = sub   || url;
+  document.getElementById('open-btn').onclick = () => { window.location.href = url; };
+  document.getElementById('result-card').classList.add('show');
 
-  // Sofort navigieren
-  setTimeout(() => {
-    window.location.href = url;
-  }, 300);
+  // Kurze Pause, dann navigieren
+  setTimeout(() => { window.location.href = url; }, 600);
 }
 
-// ── Auto-start wenn vorher schon gestartet ──────────────
-// (nach Rückkehr vom Player)
-if (document.referrer.includes('player.html')) {
-  startScanner();
+// ── Hilfsfunktionen ─────────────────────────────────────
+function setHint(msg, type = '') {
+  hint.textContent = msg;
+  hint.className   = 'scan-hint' + (type ? ' ' + type : '');
 }
 </script>
 </body>
