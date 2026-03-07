@@ -968,7 +968,7 @@ async function generatePDF() {
   try {
     const {jsPDF} = window.jspdf;
     const doc = new jsPDF({orientation:'p',unit:'mm',format:'a4'});
-    const cW=85.6,cH=54,cols=2,rows=4;
+    const cW=56,cH=85,cols=3,rows=3;
     const gx=(210-cols*cW)/(cols+1);
     const gy=(297-rows*cH-14)/(rows+1)+2;
     const pp=cols*rows;
@@ -1011,29 +1011,117 @@ function cutMarks(doc,x,y,w,h,g) {
   .forEach(([a,b,c,d])=>doc.line(a,b,c,d));
 }
 function drawFront(doc,s,x,y,w,h) {
-  doc.setFillColor(255,255,255);doc.setDrawColor(210,208,220);doc.setLineWidth(0.25);doc.roundedRect(x,y,w,h,3,3,'FD');
-  doc.setFillColor(240,180,41);doc.roundedRect(x,y,w,11,3,3,'F');doc.rect(x,y+7,w,4,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(80,50,0);doc.text('HITORDER',x+4,y+7.5);
-  doc.setFontSize(8.5);doc.setTextColor(60,35,0);doc.text(String(s.year),x+w-4,y+7.5,{align:'right'});
-  doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(18,16,28);
-  const tl=doc.splitTextToSize(s.title,w-8).slice(0,2);doc.text(tl,x+4,y+20);
-  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(110,105,130);
-  doc.text(doc.splitTextToSize(s.artist,w-8)[0],x+4,y+20+tl.length*5.5);
-  doc.setFont('helvetica','normal');doc.setFontSize(34);doc.setTextColor(240,210,140);doc.text('♪',x+w-15,y+h-4);
-  doc.setDrawColor(220,218,232);doc.setLineWidth(0.2);doc.line(x+4,y+h-9,x+w-4,y+h-9);
-  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(180,175,200);doc.text(String(s.year),x+4,y+h-4);
+  // ── Schatten-Effekt (grauer Versatz hinter der Karte) ──
+  doc.setFillColor(210,207,225);
+  doc.roundedRect(x+1.2,y+1.2,w,h,3,3,'F');
+
+  // ── Kartenbasis weiss ──
+  doc.setFillColor(255,255,255);
+  doc.setDrawColor(225,222,238);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(x,y,w,h,3,3,'FD');
+
+  // ── Dunkler Header-Bereich (oben, 26mm) ──
+  doc.setFillColor(14,13,24);
+  doc.roundedRect(x,y,w,26,3,3,'F');
+  doc.rect(x,y+20,w,6,'F');
+
+  // ── Dezente Punktmatrix im Header ──
+  doc.setFillColor(30,28,46);
+  for(let px=x+4;px<x+w-2;px+=5) for(let py=y+4;py<y+22;py+=5) doc.circle(px,py,0.4,'F');
+
+  // ── "HITORDER" Branding ──
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(6);
+  doc.setTextColor(240,180,41);
+  const brand='H I T O R D E R';
+  doc.text(brand,x+w/2,y+11,{align:'center'});
+
+  // ── Goldene Trennlinie ──
+  doc.setDrawColor(240,180,41);
+  doc.setLineWidth(0.5);
+  doc.line(x+8,y+16,x+w-8,y+16);
+
+  // ── Grosses Jahr-Badge (goldene Pille) ──
+  const yearStr=String(s.year);
+  const bW=22,bH=9,bX=x+(w-bW)/2,bY=y+30;
+  doc.setFillColor(240,180,41);
+  doc.roundedRect(bX,bY,bW,bH,4,4,'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.setTextColor(80,45,0);
+  doc.text(yearStr,x+w/2,bY+6.5,{align:'center'});
+
+  // ── Titel (zentriert, max 3 Zeilen) ──
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10.5);
+  doc.setTextColor(18,16,28);
+  const tl=doc.splitTextToSize(s.title,w-8).slice(0,3);
+  const titleY=bY+bH+8;
+  doc.text(tl,x+w/2,titleY,{align:'center'});
+
+  // ── Trennlinie ──
+  const afterTitle=titleY+tl.length*5.2+2;
+  doc.setDrawColor(235,232,248);
+  doc.setLineWidth(0.2);
+  doc.line(x+8,afterTitle,x+w-8,afterTitle);
+
+  // ── Interpret ──
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(130,125,155);
+  const artist=doc.splitTextToSize(s.artist,w-8).slice(0,2);
+  doc.text(artist,x+w/2,afterTitle+5,{align:'center'});
+
+  // ── Unterer Gold-Balken ──
+  const barH=7;
+  doc.setFillColor(240,180,41);
+  doc.roundedRect(x,y+h-barH,w,barH,3,3,'F');
+  doc.rect(x,y+h-barH,w,3,'F');
+
+  // ── Schneidemarkierungen ──
   cutMarks(doc,x,y,w,h,185);
 }
+
 function drawBack(doc,qr,x,y,w,h) {
-  doc.setFillColor(16,15,21);doc.setDrawColor(42,40,58);doc.setLineWidth(0.25);doc.roundedRect(x,y,w,h,3,3,'FD');
+  // Schatten
+  doc.setFillColor(20,18,32);
+  doc.roundedRect(x+1.2,y+1.2,w,h,3,3,'F');
+
+  // Kartenbasis dunkel
+  doc.setFillColor(16,15,21);
+  doc.setDrawColor(42,40,58);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(x,y,w,h,3,3,'FD');
+
+  // Punktmuster Hintergrund
   doc.setFillColor(26,25,36);
-  for(let px=x+5;px<x+w-3;px+=6.5) for(let py=y+4;py<y+h-3;py+=6.5) doc.circle(px,py,0.55,'F');
-  const aL=7;doc.setDrawColor(240,180,41);doc.setLineWidth(0.8);
-  [[x+3,y+3,x+3+aL,y+3],[x+3,y+3,x+3,y+3+aL],[x+w-3,y+3,x+w-3-aL,y+3],[x+w-3,y+3,x+w-3,y+3+aL],
-   [x+3,y+h-3,x+3+aL,y+h-3],[x+3,y+h-3,x+3,y+h-3-aL],[x+w-3,y+h-3,x+w-3-aL,y+h-3],[x+w-3,y+h-3,x+w-3,y+h-3-aL]]
+  for(let px=x+5;px<x+w-3;px+=5.5) for(let py=y+4;py<y+h-3;py+=5.5) doc.circle(px,py,0.45,'F');
+
+  // Gold Eck-Winkel
+  const aL=8;
+  doc.setDrawColor(240,180,41);
+  doc.setLineWidth(0.9);
+  [[x+3,y+3,x+3+aL,y+3],[x+3,y+3,x+3,y+3+aL],
+   [x+w-3,y+3,x+w-3-aL,y+3],[x+w-3,y+3,x+w-3,y+3+aL],
+   [x+3,y+h-3,x+3+aL,y+h-3],[x+3,y+h-3,x+3,y+h-3-aL],
+   [x+w-3,y+h-3,x+w-3-aL,y+h-3],[x+w-3,y+h-3,x+w-3,y+h-3-aL]]
   .forEach(([a,b,c,d])=>doc.line(a,b,c,d));
-  if(qr){const qs=33,qx=x+(w-qs)/2,qy=y+(h-qs)/2-2;doc.setFillColor(255,255,255);doc.roundedRect(qx-2,qy-2,qs+4,qs+4,2,2,'F');doc.addImage(qr,'PNG',qx,qy,qs,qs);}
-  doc.setFont('helvetica','bold');doc.setFontSize(5.8);doc.setTextColor(240,180,41);doc.text('SCANNEN & HÖREN',x+w/2,y+h-4,{align:'center'});
+
+  // QR-Code zentriert (groesser bei Hochformat)
+  if(qr) {
+    const qs=38,qx=x+(w-qs)/2,qy=y+(h-qs)/2-4;
+    doc.setFillColor(255,255,255);
+    doc.roundedRect(qx-2.5,qy-2.5,qs+5,qs+5,2,2,'F');
+    doc.addImage(qr,'PNG',qx,qy,qs,qs);
+  }
+
+  // "SCANNEN & HOREN" unten (kein Umlauts wegen jsPDF)
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(5.5);
+  doc.setTextColor(240,180,41);
+  doc.text('SCANNEN & HOREN',x+w/2,y+h-4,{align:'center'});
+
   cutMarks(doc,x,y,w,h,90);
 }
 
