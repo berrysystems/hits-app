@@ -986,8 +986,10 @@ async function generatePDF() {
       const col=(cols-1)-(pos%cols);
       msgEl.textContent=`QR-Code ${i+1} von ${sorted.length}…`; await delay(10);
       const trackId = (sorted[i].spotifyUrl.match(/track\/([a-zA-Z0-9]+)/) || [])[1] || '';
-      const info = btoa(encodeURIComponent(sorted[i].title + '|' + sorted[i].artist + '|' + sorted[i].year));
-      const playerUrl = window.location.origin + window.location.pathname.replace('index.html','').replace(/\/[^/]*$\/','') + 'player.html?id=' + trackId + '&s=' + info;
+      const rawInfo = sorted[i].title + '|' + sorted[i].artist + '|' + sorted[i].year;
+      const info = btoa(unescape(encodeURIComponent(rawInfo)));
+      const base = window.location.origin + window.location.pathname.replace(/[^\/]*$/, '');
+      const playerUrl = base + 'player.html?id=' + encodeURIComponent(trackId) + '&s=' + encodeURIComponent(info);
       const qr=await makeQR(playerUrl);
       drawBack(doc,qr,gx+col*(cW+gx),14+gy+Math.floor(pos/cols)*(cH+gy),cW,cH);
     }
