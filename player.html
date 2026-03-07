@@ -9,304 +9,181 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0e0d12">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <script src="https://sdk.scdn.co/spotify-player.js"></script>
+  <!-- SDK wird erst per JS geladen wenn alles bereit ist -->
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg:      #0e0d12;
-      --surface: #1a1921;
-      --border:  #2d2b3d;
-      --accent:  #f0b429;
-      --green:   #1DB954;
-      --red:     #e8574a;
-      --text:    #ece8f0;
-      --muted:   #7e7a93;
+      --bg:      #0e0d12; --surface: #1a1921; --border: #2d2b3d;
+      --accent:  #f0b429; --green:   #1DB954;
+      --red:     #e8574a; --text:    #ece8f0; --muted:  #7e7a93;
     }
-
     html, body {
       height: 100%; background: var(--bg); color: var(--text);
-      font-family: 'DM Sans', sans-serif;
-      overflow: hidden;
+      font-family: 'DM Sans', sans-serif; overflow: hidden;
       max-width: 480px; margin: 0 auto;
     }
-
     body::before {
-      content: '';
-      position: fixed; inset: 0;
+      content: ''; position: fixed; inset: 0; pointer-events: none;
       background:
-        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(29,185,84,.12) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 60% at 50% 0%,  rgba(29,185,84,.12) 0%, transparent 60%),
         radial-gradient(ellipse 60% 50% at 80% 100%, rgba(240,180,41,.08) 0%, transparent 60%);
-      pointer-events: none;
     }
-
-    /* ── Layout ── */
-    .screen {
-      position: fixed; inset: 0;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 32px 24px;
-      gap: 0;
-      transition: opacity .4s;
-    }
-    .screen.hidden { opacity: 0; pointer-events: none; }
 
     /* ── Logo ── */
     .logo {
       position: fixed; top: 0; left: 50%; transform: translateX(-50%);
-      width: 100%; max-width: 480px;
-      padding: 20px 24px 0;
-      display: flex; align-items: center; justify-content: space-between;
-      z-index: 10;
+      width: 100%; max-width: 480px; padding: 20px 24px 0;
+      display: flex; align-items: center; justify-content: space-between; z-index: 10;
     }
-    .logo-text {
-      font-family: 'Playfair Display', serif;
-      font-size: 20px; font-weight: 900; letter-spacing: -.3px;
-    }
+    .logo-text { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 900; }
     .logo-text em { color: var(--accent); font-style: normal; }
-    .logo-badge {
-      font-size: 11px; color: var(--muted);
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 20px; padding: 4px 10px;
-    }
+    .logo-badge { font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; }
 
-    /* ── Auth screen ── */
+    /* ── Screens ── */
+    .screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 88px 24px 32px;
+      transition: opacity .4s;
+    }
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    /* ── Auth ── */
     .auth-card {
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: 20px; padding: 32px 24px;
-      text-align: center; width: 100%; max-width: 320px;
+      border-radius: 20px; padding: 32px 24px; text-align: center;
+      width: 100%; max-width: 320px;
     }
-    .auth-icon { font-size: 48px; margin-bottom: 16px; }
+    .auth-icon  { font-size: 48px; margin-bottom: 16px; }
     .auth-title { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 8px; }
-    .auth-sub { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 24px; }
-    .auth-btn {
+    .auth-sub   { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 24px; }
+    .auth-btn   {
       width: 100%; height: 50px; border-radius: 25px;
       background: var(--green); border: none; color: #fff;
       font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
-      cursor: pointer; transition: opacity .15s;
-    }
-    .auth-btn:hover { opacity: .88; }
-
-    /* ── Player screen ── */
-    .player-wrap {
-      display: flex; flex-direction: column; align-items: center;
-      gap: 0; width: 100%;
+      cursor: pointer;
     }
 
-    /* Blind cover art */
+    /* ── Player ── */
+    .player-wrap { display: flex; flex-direction: column; align-items: center; width: 100%; }
+
     .blind-cover {
-      width: 220px; height: 220px; border-radius: 20px;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      width: 200px; height: 200px; border-radius: 20px;
+      background: var(--surface); border: 1px solid var(--border);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 12px; margin-bottom: 32px;
-      position: relative; overflow: hidden;
+      gap: 12px; margin-bottom: 32px; position: relative; overflow: hidden;
     }
     .blind-cover::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: linear-gradient(135deg, rgba(240,180,41,.06) 0%, rgba(29,185,84,.06) 100%);
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(240,180,41,.06), rgba(29,185,84,.06));
     }
-    .blind-cover .note {
-      font-size: 64px; opacity: .18; line-height: 1;
-    }
-    .blind-cover .q {
-      font-family: 'Playfair Display', serif;
-      font-size: 15px; color: var(--muted); letter-spacing: .5px;
-      text-align: center; padding: 0 20px; z-index: 1;
-    }
+    .blind-cover .note { font-size: 60px; opacity: .18; z-index: 1; }
+    .blind-cover .q    { font-family: 'Playfair Display', serif; font-size: 14px; color: var(--muted); text-align: center; padding: 0 16px; z-index: 1; }
 
     /* Waveform */
-    .waveform {
-      display: flex; align-items: center; justify-content: center;
-      gap: 3px; height: 44px; margin-bottom: 36px;
-    }
-    .wave-bar {
-      width: 4px; border-radius: 3px;
-      background: var(--green);
-      animation: wavePulse 1.1s ease-in-out infinite;
-      opacity: .75;
-    }
-    .wave-bar:nth-child(1)  { height: 12px; animation-delay: 0s; }
-    .wave-bar:nth-child(2)  { height: 22px; animation-delay: .1s; }
-    .wave-bar:nth-child(3)  { height: 34px; animation-delay: .2s; }
-    .wave-bar:nth-child(4)  { height: 44px; animation-delay: .15s; }
-    .wave-bar:nth-child(5)  { height: 30px; animation-delay: .05s; }
-    .wave-bar:nth-child(6)  { height: 40px; animation-delay: .25s; }
-    .wave-bar:nth-child(7)  { height: 20px; animation-delay: .3s; }
-    .wave-bar:nth-child(8)  { height: 36px; animation-delay: .1s; }
-    .wave-bar:nth-child(9)  { height: 14px; animation-delay: .2s; }
-    .wave-bar:nth-child(10) { height: 28px; animation-delay: .05s; }
-    .wave-bar:nth-child(11) { height: 38px; animation-delay: .15s; }
-    .wave-bar:nth-child(12) { height: 18px; animation-delay: .3s; }
+    .waveform { display: flex; align-items: center; justify-content: center; gap: 3px; height: 44px; margin-bottom: 32px; }
+    .wave-bar { width: 4px; border-radius: 3px; background: var(--green); animation: wavePulse 1.1s ease-in-out infinite; opacity: .75; }
+    .wave-bar:nth-child(1)  { height:12px; animation-delay:0s }
+    .wave-bar:nth-child(2)  { height:22px; animation-delay:.1s }
+    .wave-bar:nth-child(3)  { height:34px; animation-delay:.2s }
+    .wave-bar:nth-child(4)  { height:44px; animation-delay:.15s }
+    .wave-bar:nth-child(5)  { height:30px; animation-delay:.05s }
+    .wave-bar:nth-child(6)  { height:40px; animation-delay:.25s }
+    .wave-bar:nth-child(7)  { height:20px; animation-delay:.3s }
+    .wave-bar:nth-child(8)  { height:36px; animation-delay:.1s }
+    .wave-bar:nth-child(9)  { height:14px; animation-delay:.2s }
+    .wave-bar:nth-child(10) { height:28px; animation-delay:.05s }
+    .wave-bar:nth-child(11) { height:38px; animation-delay:.15s }
+    .wave-bar:nth-child(12) { height:18px; animation-delay:.3s }
+    .waveform.paused .wave-bar { animation-play-state: paused; opacity: .25; }
+    @keyframes wavePulse { 0%,100%{transform:scaleY(.4)} 50%{transform:scaleY(1)} }
 
-    .waveform.paused .wave-bar { animation-play-state: paused; opacity: .3; }
-    .waveform.hidden { opacity: 0; }
-
-    @keyframes wavePulse {
-      0%, 100% { transform: scaleY(0.4); }
-      50%       { transform: scaleY(1); }
-    }
-
-    /* Transport controls */
-    .controls {
-      display: flex; align-items: center; justify-content: center;
-      gap: 20px; margin-bottom: 28px;
-    }
-    .ctrl-btn {
-      background: none; border: none; color: var(--muted);
-      font-size: 28px; cursor: pointer; padding: 8px;
-      transition: color .15s, transform .12s;
-      line-height: 1;
-    }
+    /* Controls */
+    .controls { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 24px; }
+    .ctrl-btn { background: none; border: none; color: var(--muted); font-size: 26px; cursor: pointer; padding: 8px; transition: color .15s, transform .12s; }
     .ctrl-btn:active { transform: scale(.9); }
     .ctrl-btn:hover  { color: var(--text); }
-
     .play-btn {
-      width: 72px; height: 72px; border-radius: 50%;
-      background: var(--green); border: none; color: #fff;
-      font-size: 28px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: transform .12s, opacity .15s;
-      box-shadow: 0 0 28px rgba(29,185,84,.35);
+      width: 68px; height: 68px; border-radius: 50%;
+      background: var(--green); border: none; color: #fff; font-size: 26px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: transform .12s; box-shadow: 0 0 24px rgba(29,185,84,.3);
     }
     .play-btn:active { transform: scale(.93); }
-    .play-btn.loading { opacity: .6; pointer-events: none; animation: pulse 1.2s ease-in-out infinite; }
-    @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.8} }
+    .play-btn.loading { background: #155e2e; pointer-events: none; }
 
-    /* Progress bar */
-    .progress-wrap {
-      width: 100%; max-width: 320px;
-      margin-bottom: 28px;
-    }
-    .progress-bar-bg {
-      width: 100%; height: 4px; background: var(--border);
-      border-radius: 2px; overflow: hidden; cursor: pointer;
-    }
-    .progress-bar-fill {
-      height: 100%; background: var(--green); border-radius: 2px;
-      transition: width .5s linear; width: 0%;
-    }
-    .progress-times {
-      display: flex; justify-content: space-between;
-      font-size: 11px; color: var(--muted); margin-top: 6px;
-    }
+    /* Progress */
+    .progress-wrap { width: 100%; max-width: 300px; margin-bottom: 28px; }
+    .prog-bg { width: 100%; height: 4px; background: var(--border); border-radius: 2px; cursor: pointer; overflow: hidden; }
+    .prog-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .5s linear; width: 0%; }
+    .prog-times { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 6px; }
 
-    /* Reveal button */
+    /* Reveal */
     .reveal-btn {
-      width: 100%; max-width: 320px; height: 52px;
-      border-radius: 26px; border: 1.5px solid var(--accent);
-      background: rgba(240,180,41,.08); color: var(--accent);
-      font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
-      cursor: pointer; transition: background .15s, transform .12s;
-      margin-bottom: 12px;
+      width: 100%; max-width: 300px; height: 50px; border-radius: 25px;
+      border: 1.5px solid var(--accent); background: rgba(240,180,41,.08);
+      color: var(--accent); font-family: 'DM Sans', sans-serif;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: background .15s;
     }
-    .reveal-btn:hover   { background: rgba(240,180,41,.18); }
-    .reveal-btn:active  { transform: scale(.97); }
+    .reveal-btn:hover { background: rgba(240,180,41,.18); }
 
-    /* ── Solution overlay ── */
+    /* ── Lösung ── */
     .solution-panel {
-      position: fixed; inset: 0;
-      background: rgba(14,13,18,.96);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      z-index: 200;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 32px 24px;
-      opacity: 0; pointer-events: none;
-      transition: opacity .35s;
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(14,13,18,.96); backdrop-filter: blur(20px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px; opacity: 0; pointer-events: none; transition: opacity .3s;
     }
     .solution-panel.show { opacity: 1; pointer-events: all; }
-
     .solution-card {
       background: var(--surface); border: 1px solid rgba(240,180,41,.3);
-      border-radius: 24px; padding: 32px 24px;
-      width: 100%; max-width: 340px;
-      text-align: center;
+      border-radius: 24px; padding: 32px 24px; width: 100%; max-width: 340px; text-align: center;
       transform: scale(.88) translateY(20px);
-      transition: transform .38s cubic-bezier(.34,1.4,.64,1);
+      transition: transform .35s cubic-bezier(.34,1.4,.64,1);
     }
     .solution-panel.show .solution-card { transform: scale(1) translateY(0); }
+    .solution-label  { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; color: var(--accent); margin-bottom: 20px; }
+    .solution-year   {
+      display: inline-block; background: linear-gradient(135deg, var(--accent), #c48f18);
+      border-radius: 10px; padding: 8px 20px; margin-bottom: 18px;
+      font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 700;
+      color: #1a1100; box-shadow: 0 4px 16px rgba(240,180,41,.3);
+    }
+    .solution-title  { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; line-height: 1.2; margin-bottom: 8px; }
+    .solution-artist { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
+    .sol-actions { display: flex; flex-direction: column; gap: 10px; }
+    .sol-btn { width: 100%; height: 48px; border-radius: 24px; border: none; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .sol-continue { background: var(--green); color: #fff; }
+    .sol-close    { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
 
-    .solution-label {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 1.2px; color: var(--accent); margin-bottom: 20px;
-    }
-    .solution-year {
-      display: inline-block;
-      background: linear-gradient(135deg, var(--accent), #c48f18);
-      border-radius: 10px; padding: 8px 20px;
-      font-family: 'Playfair Display', serif;
-      font-size: 32px; font-weight: 700; color: #1a1100;
-      margin-bottom: 18px;
-      box-shadow: 0 4px 16px rgba(240,180,41,.3);
-    }
-    .solution-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 24px; font-weight: 700; line-height: 1.2;
-      margin-bottom: 8px;
-    }
-    .solution-artist {
-      font-size: 15px; color: var(--muted); margin-bottom: 28px;
-    }
-
-    .solution-actions { display: flex; flex-direction: column; gap: 10px; }
-    .sol-btn {
-      width: 100%; height: 50px; border-radius: 25px; border: none;
-      font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
-      cursor: pointer; transition: transform .12s, opacity .15s;
-    }
-    .sol-btn:active { transform: scale(.97); }
-    .sol-btn-continue { background: var(--green); color: #fff; }
-    .sol-btn-close    { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
-
-    /* ── Error screen ── */
+    /* ── Error ── */
     .error-card {
       background: var(--surface); border: 1px solid rgba(232,87,74,.3);
-      border-radius: 20px; padding: 32px 24px;
-      text-align: center; width: 100%; max-width: 320px;
+      border-radius: 20px; padding: 32px 24px; text-align: center; width: 100%; max-width: 320px;
     }
     .error-icon  { font-size: 44px; margin-bottom: 12px; }
     .error-title { font-family: 'Playfair Display', serif; font-size: 20px; margin-bottom: 8px; }
     .error-sub   { font-size: 13px; color: var(--muted); line-height: 1.5; }
 
-    /* ── Status bar ── */
-    .status-bar {
-      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 20px; padding: 8px 16px;
-      font-size: 11px; color: var(--muted); white-space: nowrap;
-      transition: opacity .3s;
-    }
-    .status-bar.hidden { opacity: 0; }
-
     /* ── Spinner ── */
-    .spinner {
-      width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.3);
-      border-top-color: #fff; border-radius: 50%;
-      animation: spin .7s linear infinite;
-    }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { width: 22px; height: 22px; border: 2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation: spin .7s linear infinite; }
   </style>
 </head>
 <body>
 
-<!-- Logo -->
 <div class="logo">
   <div class="logo-text">Hit<em>Order</em></div>
   <div class="logo-badge">🎵 Raterunde</div>
 </div>
 
-<!-- Auth screen (if not logged in) -->
+<!-- Auth screen -->
 <div class="screen" id="screen-auth">
   <div class="auth-card">
     <div class="auth-icon">🔐</div>
     <div class="auth-title">Spotify erforderlich</div>
-    <div class="auth-sub">
-      Melde dich mit deinem Spotify Premium-Account an, um diesen Song abzuspielen.
-    </div>
+    <div class="auth-sub">Melde dich mit Spotify Premium an um diesen Song zu hören.</div>
     <button class="auth-btn" onclick="doAuth()">Mit Spotify anmelden</button>
   </div>
 </div>
@@ -314,52 +191,33 @@
 <!-- Player screen -->
 <div class="screen hidden" id="screen-player">
   <div class="player-wrap">
-
-    <!-- Blind cover -->
     <div class="blind-cover">
       <div class="note">♪</div>
       <div class="q">Welcher Song ist das?</div>
     </div>
-
-    <!-- Waveform -->
     <div class="waveform paused" id="waveform">
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
-      <div class="wave-bar"></div>
+      <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+      <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+      <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+      <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
     </div>
-
-    <!-- Controls -->
     <div class="controls">
-      <button class="ctrl-btn" onclick="seekBack()" title="10s zurück">⏮</button>
+      <button class="ctrl-btn" onclick="seekRel(-10000)" title="10s zurück">⏮</button>
       <button class="play-btn loading" id="play-btn" onclick="togglePlay()">
-        <div class="spinner" id="btn-spinner"></div>
+        <div class="spin" id="btn-spin"></div>
       </button>
-      <button class="ctrl-btn" onclick="seekForward()" title="10s vor">⏭</button>
+      <button class="ctrl-btn" onclick="seekRel(10000)" title="10s vor">⏭</button>
     </div>
-
-    <!-- Progress -->
     <div class="progress-wrap">
-      <div class="progress-bar-bg" onclick="seekTo(event)">
-        <div class="progress-bar-fill" id="progress-fill"></div>
+      <div class="prog-bg" id="prog-bg" onclick="seekClick(event)">
+        <div class="prog-fill" id="prog-fill"></div>
       </div>
-      <div class="progress-times">
-        <span id="t-current">0:00</span>
-        <span id="t-total">–:––</span>
+      <div class="prog-times">
+        <span id="t-cur">0:00</span>
+        <span id="t-tot">–:––</span>
       </div>
     </div>
-
-    <!-- Reveal button -->
     <button class="reveal-btn" onclick="showSolution()">🔍 Lösung anzeigen</button>
-
   </div>
 </div>
 
@@ -368,7 +226,7 @@
   <div class="error-card">
     <div class="error-icon">😕</div>
     <div class="error-title" id="err-title">Fehler</div>
-    <div class="error-sub" id="err-sub">Unbekannter Fehler</div>
+    <div class="error-sub"  id="err-sub">–</div>
   </div>
 </div>
 
@@ -376,136 +234,156 @@
 <div class="solution-panel" id="solution-panel">
   <div class="solution-card">
     <div class="solution-label">🎉 Die Lösung</div>
-    <div class="solution-year" id="sol-year">2000</div>
-    <div class="solution-title" id="sol-title">Titel</div>
-    <div class="solution-artist" id="sol-artist">Künstler</div>
-    <div class="solution-actions">
-      <button class="sol-btn sol-btn-continue" onclick="closeSolution()">▶ Song weiterhören</button>
-      <button class="sol-btn sol-btn-close" onclick="closeSolution()">Schließen</button>
+    <div class="solution-year"   id="sol-year">2000</div>
+    <div class="solution-title"  id="sol-title">–</div>
+    <div class="solution-artist" id="sol-artist">–</div>
+    <div class="sol-actions">
+      <button class="sol-btn sol-continue" onclick="closeSolution()">▶ Song weiterhören</button>
+      <button class="sol-btn sol-close"    onclick="closeSolution()">Schließen</button>
     </div>
   </div>
 </div>
 
-<!-- Status -->
-<div class="status-bar hidden" id="status-bar">Verbinde mit Spotify…</div>
-
 <script>
 // ══════════════════════════════════════════════════════
-// URL PARAMS
+// PARAMS  –  alle aus der URL lesen BEVOR irgendetwas
+//            passiert (auch vor einem OAuth-Redirect)
 // ══════════════════════════════════════════════════════
-const params  = new URLSearchParams(window.location.search);
-const TRACK_ID = params.get('id') || '';
-let   songInfo = { title:'', artist:'', year:'' };
+const _raw    = new URLSearchParams(window.location.search);
+const TRACK_ID = _raw.get('id') || '';
+const S_PARAM  = _raw.get('s')  || '';
+
+let songInfo = { title:'', artist:'', year:'' };
 try {
-  const raw = decodeURIComponent(atob(params.get('s') || ''));
-  const [title, artist, year] = raw.split('|');
-  songInfo = { title: title||'', artist: artist||'', year: year||'' };
+  const dec = decodeURIComponent(atob(S_PARAM));
+  const [t,a,y] = dec.split('|');
+  songInfo = { title:t||'', artist:a||'', year:y||'' };
 } catch(e) {}
 
-// ══════════════════════════════════════════════════════
-// AUTH
-// ══════════════════════════════════════════════════════
-const SCOPES     = 'streaming user-read-playback-state user-modify-playback-state user-read-email user-read-private playlist-read-private playlist-read-collaborative user-library-read';
-const CLIENT_ID  = localStorage.getItem('sp_client_id') || '';
+// ── Redirect URI immer mit den original Track-Params ──
+const REDIRECT_URI = window.location.origin + window.location.pathname
+                     + '?id=' + encodeURIComponent(TRACK_ID)
+                     + '&s='  + encodeURIComponent(S_PARAM);
 
-const getToken   = () => {
-  const tok = localStorage.getItem('sp_token');
-  const exp = parseInt(localStorage.getItem('sp_exp')||'0');
-  return tok && Date.now() < exp-60000 ? tok : null;
+// ══════════════════════════════════════════════════════
+// AUTH  –  eigene Schlüssel, NICHT dieselben wie HitOrder
+//          (sp_p_ prefix = "player")
+// ══════════════════════════════════════════════════════
+// Wir lesen die Client-ID von HitOrder (die der User
+// eingerichtet hat) aber speichern Player-Token getrennt.
+const CLIENT_ID = localStorage.getItem('sp_client_id') || '';
+
+const PLAYER_SCOPES = [
+  'streaming',
+  'user-read-email',
+  'user-read-private',
+  'user-read-playback-state',
+  'user-modify-playback-state'
+].join(' ');
+
+const getPlayerToken = () => {
+  const tok = localStorage.getItem('sp_p_token');
+  const exp = parseInt(localStorage.getItem('sp_p_exp') || '0');
+  return tok && Date.now() < exp - 60000 ? tok : null;
 };
 
-async function refreshToken() {
-  const clientId = localStorage.getItem('sp_client_id');
-  const refresh  = localStorage.getItem('sp_refresh');
-  if (!clientId || !refresh) return false;
+async function refreshPlayerToken() {
+  const refresh = localStorage.getItem('sp_p_refresh');
+  if (!CLIENT_ID || !refresh) return false;
   try {
     const r = await fetch('https://accounts.spotify.com/api/token', {
-      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body: new URLSearchParams({ grant_type:'refresh_token', refresh_token:refresh, client_id:clientId })
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type:    'refresh_token',
+        refresh_token: refresh,
+        client_id:     CLIENT_ID,
+      })
     });
     if (!r.ok) return false;
     const d = await r.json();
-    localStorage.setItem('sp_token', d.access_token);
-    localStorage.setItem('sp_exp', Date.now() + d.expires_in*1000);
-    if (d.refresh_token) localStorage.setItem('sp_refresh', d.refresh_token);
+    localStorage.setItem('sp_p_token', d.access_token);
+    localStorage.setItem('sp_p_exp',   Date.now() + d.expires_in * 1000);
+    if (d.refresh_token) localStorage.setItem('sp_p_refresh', d.refresh_token);
     return true;
   } catch { return false; }
 }
 
-async function getValidToken() {
-  const t = getToken();
+async function getValidPlayerToken() {
+  const t = getPlayerToken();
   if (t) return t;
-  const ok = await refreshToken();
-  return ok ? getToken() : null;
+  const ok = await refreshPlayerToken();
+  return ok ? getPlayerToken() : null;
 }
 
-function codeVerifier() {
+// PKCE helpers
+function makeVerifier() {
   const a = new Uint8Array(64); crypto.getRandomValues(a);
   return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
 }
-async function codeChallenge(v) {
+async function makeChallenge(v) {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v));
   return btoa(String.fromCharCode(...new Uint8Array(d))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
 }
 
 async function doAuth() {
-  const clientId = localStorage.getItem('sp_client_id');
-  if (!clientId) { showError('Keine Client ID', 'Öffne zuerst HitOrder und verbinde Spotify.'); return; }
-  const v = codeVerifier();
-  const c = await codeChallenge(v);
-  localStorage.setItem('sp_verifier', v);
-  const redirectUri = window.location.origin + window.location.pathname;
+  if (!CLIENT_ID) {
+    showError('Nicht eingerichtet', 'Öffne HitOrder und verbinde zuerst Spotify unter dem 🎵 Symbol.');
+    return;
+  }
+  const v = makeVerifier();
+  const c = await makeChallenge(v);
+  localStorage.setItem('sp_p_verifier', v);
   const p = new URLSearchParams({
-    client_id: clientId, response_type: 'code',
-    redirect_uri: redirectUri,
-    code_challenge_method: 'S256', code_challenge: c,
-    scope: SCOPES
+    client_id:             CLIENT_ID,
+    response_type:         'code',
+    redirect_uri:          REDIRECT_URI,
+    code_challenge_method: 'S256',
+    code_challenge:        c,
+    scope:                 PLAYER_SCOPES,
   });
   window.location.href = 'https://accounts.spotify.com/authorize?' + p;
 }
 
-async function handleCallback() {
-  const p = new URLSearchParams(window.location.search);
-  const code = p.get('code'), err = p.get('error');
-  // Restore original params
-  const sp = new URLSearchParams({ id: TRACK_ID, s: params.get('s')||'' });
-  history.replaceState({}, '', window.location.pathname + '?' + sp);
-  if (err || !code) { if(err) showError('Login abgebrochen',''); return; }
-  const clientId = localStorage.getItem('sp_client_id');
-  const verifier = localStorage.getItem('sp_verifier');
-  const redirectUri = window.location.origin + window.location.pathname;
+// OAuth Callback – nur verarbeiten wenn ?code vorhanden
+async function handleCallback(code) {
+  const verifier = localStorage.getItem('sp_p_verifier');
+  if (!CLIENT_ID || !verifier) { showError('Auth-Fehler', 'Bitte Seite neu laden.'); return false; }
   try {
     const r = await fetch('https://accounts.spotify.com/api/token', {
-      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body: new URLSearchParams({ grant_type:'authorization_code', code, redirect_uri:redirectUri, client_id:clientId, code_verifier:verifier })
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type:    'authorization_code',
+        code,
+        redirect_uri:  REDIRECT_URI,
+        client_id:     CLIENT_ID,
+        code_verifier: verifier,
+      })
     });
-    if (!r.ok) throw new Error('Token-Fehler');
+    if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error_description || 'Token-Fehler'); }
     const d = await r.json();
-    localStorage.setItem('sp_token', d.access_token);
-    localStorage.setItem('sp_exp', Date.now() + d.expires_in*1000);
-    if (d.refresh_token) localStorage.setItem('sp_refresh', d.refresh_token);
-  } catch(e) { showError('Auth fehlgeschlagen', e.message); }
+    localStorage.setItem('sp_p_token',   d.access_token);
+    localStorage.setItem('sp_p_exp',     Date.now() + d.expires_in * 1000);
+    if (d.refresh_token) localStorage.setItem('sp_p_refresh', d.refresh_token);
+    // URL bereinigen – Track-Params behalten, code entfernen
+    history.replaceState({}, '', window.location.pathname + '?id=' + encodeURIComponent(TRACK_ID) + '&s=' + encodeURIComponent(S_PARAM));
+    return true;
+  } catch(e) { showError('Anmeldung fehlgeschlagen', e.message); return false; }
 }
 
 // ══════════════════════════════════════════════════════
 // SCREENS
 // ══════════════════════════════════════════════════════
 function showScreen(id) {
-  ['screen-auth','screen-player','screen-error'].forEach(s => {
-    document.getElementById(s).classList.toggle('hidden', s !== id);
-  });
+  ['screen-auth','screen-player','screen-error'].forEach(s =>
+    document.getElementById(s).classList.toggle('hidden', s !== id)
+  );
 }
-
 function showError(title, sub) {
   document.getElementById('err-title').textContent = title;
   document.getElementById('err-sub').textContent   = sub;
   showScreen('screen-error');
-}
-
-function setStatus(msg, hide=false) {
-  const el = document.getElementById('status-bar');
-  el.textContent = msg;
-  el.classList.toggle('hidden', hide);
 }
 
 // ══════════════════════════════════════════════════════
@@ -514,138 +392,130 @@ function setStatus(msg, hide=false) {
 let player     = null;
 let deviceId   = null;
 let isPlaying  = false;
-let duration   = 0;
+let trackDur   = 0;
+let trackPos   = 0;
 let posTimer   = null;
-let currentPos = 0;
 
-window.onSpotifyWebPlaybackSDKReady = async () => {
-  const token = await getValidToken();
-  if (!token) { showScreen('screen-auth'); return; }
+// SDK wird erst jetzt geladen (nachdem Auth gesichert ist)
+function loadSDK(token) {
+  window.onSpotifyWebPlaybackSDKReady = () => initPlayer(token);
+  const s = document.createElement('script');
+  s.src = 'https://sdk.scdn.co/spotify-player.js';
+  document.head.appendChild(s);
+}
 
+function initPlayer(token) {
   player = new Spotify.Player({
-    name: 'HitOrder',
+    name: 'HitOrder Player',
     getOAuthToken: async cb => {
-      const t = await getValidToken();
+      const t = await getValidPlayerToken();
       cb(t || '');
     },
     volume: 0.85
   });
 
-  // ── Events ──
   player.addListener('ready', ({ device_id }) => {
     deviceId = device_id;
-    setStatus('Bereit', true);
-    startPlayback(token);
+    startPlayback();
   });
 
   player.addListener('not_ready', () => {
-    setStatus('Verbindung unterbrochen…');
+    setPlayBtn(false, false);
   });
 
   player.addListener('player_state_changed', state => {
     if (!state) return;
-    isPlaying  = !state.paused;
-    duration   = state.duration;
-    currentPos = state.position;
-    updatePlayBtn();
-    updateWaveform();
-    updateProgress(state.position, state.duration);
-    if (!state.paused) startPosTimer();
-    else stopPosTimer();
+    isPlaying = !state.paused;
+    trackDur  = state.duration;
+    trackPos  = state.position;
+    setPlayBtn(true, isPlaying);
+    document.getElementById('waveform').classList.toggle('paused', !isPlaying);
+    updateProgress(trackPos, trackDur);
+    isPlaying ? startPosTimer() : stopPosTimer();
   });
 
-  player.addListener('initialization_error', ({ message }) => showError('SDK Fehler', message));
-  player.addListener('authentication_error',  ({ message }) => showError('Auth Fehler', message));
-  player.addListener('account_error',         ({ message }) => showError('Kein Premium', 'Spotify Premium ist erforderlich.'));
+  player.addListener('initialization_error', ({ message }) => showError('SDK-Fehler', message));
+  player.addListener('authentication_error',  () => showError('Auth abgelaufen', 'Bitte Seite neu laden.'));
+  player.addListener('account_error',         () => showError('Kein Spotify Premium', 'Premium ist für die Wiedergabe erforderlich.'));
 
-  setStatus('Verbinde mit Spotify…');
-  await player.connect();
-};
+  player.connect();
+}
 
-async function startPlayback(token) {
-  if (!TRACK_ID) { showError('Kein Track', 'Ungültiger QR-Code.'); return; }
+async function startPlayback() {
   showScreen('screen-player');
-  setStatus('Lade Song…');
+  const token = await getValidPlayerToken();
+  if (!token) { showError('Token abgelaufen', 'Bitte Seite neu laden.'); return; }
   try {
     const r = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
       method: 'PUT',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uris: [`spotify:track:${TRACK_ID}`] })
+      body: JSON.stringify({ uris: ['spotify:track:' + TRACK_ID] })
     });
-    if (!r.ok && r.status !== 204) {
-      const e = await r.json().catch(()=>({}));
-      throw new Error(e.error?.message || 'Wiedergabe fehlgeschlagen');
+    // 204 = OK (no content), 202 = accepted
+    if (!r.ok && r.status !== 204 && r.status !== 202) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(e.error?.message || `HTTP ${r.status}`);
     }
-    setStatus('', true);
   } catch(e) { showError('Wiedergabe fehlgeschlagen', e.message); }
 }
 
-// ── Controls ──────────────────────────────────────────
+// ── Transport ─────────────────────────────────────────
 async function togglePlay() {
   if (!player) return;
   await player.togglePlay();
 }
 
-async function seekBack() {
+async function seekRel(ms) {
   if (!player) return;
-  const state = await player.getCurrentState();
-  if (!state) return;
-  player.seek(Math.max(0, state.position - 10000));
+  const st = await player.getCurrentState();
+  if (!st) return;
+  const target = Math.max(0, Math.min(st.duration, st.position + ms));
+  await player.seek(target);
 }
 
-async function seekForward() {
-  if (!player) return;
-  const state = await player.getCurrentState();
-  if (!state) return;
-  player.seek(Math.min(state.duration, state.position + 10000));
+async function seekClick(e) {
+  if (!player || !trackDur) return;
+  const rect = document.getElementById('prog-bg').getBoundingClientRect();
+  const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  await player.seek(Math.round(pct * trackDur));
 }
 
-async function seekTo(e) {
-  if (!player || !duration) return;
-  const rect = e.currentTarget.getBoundingClientRect();
-  const pct  = (e.clientX - rect.left) / rect.width;
-  player.seek(Math.round(pct * duration));
-}
-
-// ── UI updates ─────────────────────────────────────────
-function updatePlayBtn() {
+// ── UI ────────────────────────────────────────────────
+function setPlayBtn(ready, playing) {
   const btn = document.getElementById('play-btn');
-  const sp  = document.getElementById('btn-spinner');
-  btn.classList.remove('loading');
-  sp.style.display = 'none';
-  btn.textContent  = isPlaying ? '⏸' : '▶';
+  const sp  = document.getElementById('btn-spin');
+  btn.classList.toggle('loading', !ready);
+  sp.style.display    = ready ? 'none' : 'block';
+  btn.childNodes[btn.childNodes.length-1]?.remove?.();
+  if (ready) {
+    btn.innerHTML = playing ? '⏸' : '▶';
+  } else {
+    btn.innerHTML = '<div class="spin"></div>';
+  }
 }
 
-function updateWaveform() {
-  document.getElementById('waveform').classList.toggle('paused', !isPlaying);
-}
-
-function updateProgress(pos, dur) {
-  const pct = dur > 0 ? (pos / dur) * 100 : 0;
-  document.getElementById('progress-fill').style.width = pct + '%';
-  document.getElementById('t-current').textContent = fmtTime(pos);
-  document.getElementById('t-total').textContent   = fmtTime(dur);
-}
-
-function fmtTime(ms) {
+function fmt(ms) {
   const s = Math.floor(ms / 1000);
   return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
 }
 
-function startPosTimer() {
-  stopPosTimer();
-  const tick = () => {
-    if (!isPlaying) return;
-    currentPos += 500;
-    updateProgress(currentPos, duration);
-    posTimer = setTimeout(tick, 500);
-  };
-  posTimer = setTimeout(tick, 500);
+function updateProgress(pos, dur) {
+  const pct = dur > 0 ? (pos/dur)*100 : 0;
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('t-cur').textContent = fmt(pos);
+  document.getElementById('t-tot').textContent = fmt(dur);
 }
 
+function startPosTimer() {
+  stopPosTimer();
+  posTimer = setInterval(() => {
+    if (!isPlaying) return;
+    trackPos = Math.min(trackPos + 500, trackDur);
+    updateProgress(trackPos, trackDur);
+  }, 500);
+}
 function stopPosTimer() {
-  clearTimeout(posTimer);
-  posTimer = null;
+  clearInterval(posTimer); posTimer = null;
 }
 
 // ── Solution ──────────────────────────────────────────
@@ -655,7 +525,6 @@ function showSolution() {
   document.getElementById('sol-artist').textContent = songInfo.artist || '–';
   document.getElementById('solution-panel').classList.add('show');
 }
-
 function closeSolution() {
   document.getElementById('solution-panel').classList.remove('show');
 }
@@ -664,31 +533,36 @@ function closeSolution() {
 // INIT
 // ══════════════════════════════════════════════════════
 (async () => {
-  // Handle OAuth redirect back to player
-  const urlP = new URLSearchParams(window.location.search);
-  if (urlP.get('code') || urlP.get('error')) {
-    await handleCallback();
-  }
-
+  // 1. Fehler: keine Track-ID
   if (!TRACK_ID) {
-    showError('Ungültiger QR-Code', 'Diese Seite muss über einen HitOrder QR-Code geöffnet werden.');
+    showError('Ungültiger QR-Code', 'Bitte einen gültigen HitOrder QR-Code scannen.');
     return;
   }
 
-  const clientId = localStorage.getItem('sp_client_id');
-  if (!clientId) {
-    showError('Nicht eingerichtet', 'Öffne zuerst die HitOrder App und verbinde Spotify unter dem 🎵 Symbol.');
+  // 2. Fehler: HitOrder wurde noch nicht eingerichtet
+  if (!CLIENT_ID) {
+    showError('HitOrder nicht eingerichtet', 'Öffne HitOrder und verbinde Spotify unter dem 🎵 Symbol.');
     return;
   }
 
-  const token = await getValidToken();
+  // 3. OAuth Callback abhandeln (Spotify leitet hierher zurück)
+  const code  = _raw.get('code');
+  const oerr  = _raw.get('error');
+  if (oerr) { showError('Anmeldung abgebrochen', ''); return; }
+  if (code) {
+    const ok = await handleCallback(code);
+    if (!ok) return;
+  }
+
+  // 4. Token prüfen
+  let token = await getValidPlayerToken();
   if (!token) {
     showScreen('screen-auth');
     return;
   }
 
-  // SDK is loaded – onSpotifyWebPlaybackSDKReady fires automatically
-  setStatus('Verbinde…');
+  // 5. SDK laden & Player starten
+  loadSDK(token);
 })();
 </script>
 </body>
