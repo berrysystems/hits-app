@@ -887,6 +887,7 @@ async function importPlaylist() {
     // 1. Get playlist meta
     const info = await (await fetch(`https://api.spotify.com/v1/playlists/${id}?fields=name,tracks.total`, { headers })).json();
     if (info.error) throw new Error(info.error.message || 'Playlist nicht gefunden');
+    if (!info.tracks) throw new Error('Playlist nicht lesbar (Podcast oder privat)');
     const total = info.tracks.total;
     const name  = info.name;
 
@@ -1103,19 +1104,22 @@ async function spLoadPlaylists() {
     while (url) {
       const r = await fetch(url, { headers:{Authorization:'Bearer '+token} });
       const d = await r.json();
-      items.push(...(d.items||[]));
+      items.push(...(d.items||[]).filter(x => x != null));
       url = d.next || null;
     }
     if (!items.length) { spRender('<div class="sp-empty">Keine Playlists gefunden</div>'); return; }
-    const cards = items.map(pl => {
-      const img = pl.images?.[0]?.url;
-      const thumb = img ? `<img src="${img}" alt="">` : '🎵';
-      return `<div class="sp-pl-card" onclick="spOpenPlaylist('${pl.id}','${escJs(pl.name)}',${pl.tracks.total})">
-        <div class="sp-pl-img">${thumb}</div>
-        <div class="sp-pl-name">${esc(pl.name)}</div>
-        <div class="sp-pl-count">${pl.tracks.total} Songs</div>
-      </div>`;
-    }).join('');
+    const cards = items
+      .filter(pl => pl && pl.id && pl.tracks != null)  // Podcasts/null-tracks ausfiltern
+      .map(pl => {
+        const img   = pl.images?.[0]?.url;
+        const thumb = img ? `<img src="${img}" alt="">` : '🎵';
+        const total = pl.tracks?.total ?? 0;
+        return `<div class="sp-pl-card" onclick="spOpenPlaylist('${pl.id}','${escJs(pl.name)}',${total})">
+          <div class="sp-pl-img">${thumb}</div>
+          <div class="sp-pl-name">${esc(pl.name)}</div>
+          <div class="sp-pl-count">${total} Songs</div>
+        </div>`;
+      }).join('');
     spRender(`<div class="sp-pl-grid">${cards}</div>`);
   } catch(e) { spRender(`<div class="sp-empty">Fehler: ${e.message}</div>`); }
 }
@@ -1181,12 +1185,56 @@ async function spLoadLiked() {
   if (!token) return;
   try {
     const r = await fetch('https://api.spotify.com/v1/me/tracks?limit=50', { headers:{Authorization:'Bearer '+token} });
+
+    // HTTP-Fehler direkt prüfen (nicht nur JSON-error-Feld)
+    if (!r.ok) {
+      if (r.status === 401 || r.status === 403) {
+        spRender(`<div class="sp-empty" style="line-height:1.7">
+          ⚠️ <strong>Berechtigung fehlt</strong><br><br>
+          Dein Spotify-Login hat keinen Zugriff auf Liked Songs.<br>
+          Bitte tippe oben auf <strong>🎵 → Verbindung trennen</strong>
+          und melde dich neu an.
+        </div>`);
+      } else {
+        spRender(`<div class="sp-empty">API-Fehler ${r.status}</div>`);
+      }
+      return;
+    }
+
     const d = await r.json();
-    const items = (d.items||[]).map(i => i.track);
-    if (!items.length) { spRender('<div class="sp-empty">Keine Liked Songs</div>'); return; }
-    const rows = items.map(t => spSongRow(t, true)).filter(Boolean).join('');
-    spRender(rows);
-    spShowImportBar('Liked Songs', '__liked__');
+
+    // Zusätzlich JSON-Error-Feld prüfen
+    if (d.error) {
+      spRender(`<div class="sp-empty">⚠️ ${d.error.message || 'Unbekannter Fehler'}</div>`);
+      return;
+    }
+
+    // Alle Seiten laden
+    const allItems = [...(d.items || [])];
+    let nextUrl = d.next || null;
+    while (nextUrl) {
+      const rn = await fetch(nextUrl, { headers:{Authorization:'Bearer '+token} });
+      if (!rn.ok) break;
+      const dn = await rn.json();
+      if (dn.error) break;
+      allItems.push(...(dn.items || []));
+      nextUrl = dn.next || null;
+    }
+
+    if (!allItems.length) {
+      spRender('<div class="sp-empty">Keine Liked Songs gefunden</div>');
+      return;
+    }
+
+    const tracks = allItems.map(i => i?.track).filter(Boolean);
+    if (!tracks.length) {
+      spRender('<div class="sp-empty">Keine abspielbaren Liked Songs gefunden</div>');
+      return;
+    }
+
+    const rows = tracks.map(t => spSongRow(t, true)).filter(Boolean).join('');
+    spRender(rows || '<div class="sp-empty">Keine abspielbaren Songs</div>');
+    spShowImportBar(`Liked Songs (${tracks.length})`, '__liked__');
     document.getElementById('sp-import-bar-btn').onclick = () => spImportLiked();
   } catch(e) { spRender(`<div class="sp-empty">Fehler: ${e.message}</div>`); }
 }
