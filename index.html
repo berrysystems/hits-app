@@ -345,6 +345,21 @@
     .sp-loader p { font-size: 13px; color: var(--muted); }
     .sp-empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 13px; }
 
+    /* ── Cache-Banner ── */
+    .sp-cache-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 16px; margin: 0 0 4px;
+      font-size: 11px; color: var(--muted);
+      background: var(--surface); border-bottom: 1px solid var(--border);
+    }
+    .sp-cache-bar button {
+      background: none; border: 1px solid var(--border); border-radius: 10px;
+      color: var(--muted); font-family: 'DM Sans', sans-serif;
+      font-size: 11px; padding: 3px 10px; cursor: pointer;
+      transition: color .15s, border-color .15s;
+    }
+    .sp-cache-bar button:hover { color: var(--text); border-color: var(--text); }
+
     /* ── PWA Install Banner ── */
     .install-banner {
       position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
@@ -1133,6 +1148,94 @@ function drawBack(doc,qr,x,y,w,h) {
 // ══════════════════════════════════════════════════════
 // SPOTIFY BROWSER
 // ══════════════════════════════════════════════════════
+
+// ── Cache-Layer ────────────────────────────────────────
+// Speichert API-Antworten in localStorage mit TTL
+const SP_CACHE_PREFIX = 'sp_cache_';
+const TTL = {
+  playlists: 30 * 60 * 1000,   // Playlist-Liste:    30 min
+  tracks:    60 * 60 * 1000,   // Playlist-Tracks:   60 min
+  liked:     15 * 60 * 1000,   // Liked Songs:       15 min
+  search:     0,                // Suche: nie cachen
+};
+
+function cacheSet(key, data) {
+  try {
+    localStorage.setItem(SP_CACHE_PREFIX + key, JSON.stringify({ ts: Date.now(), data }));
+  } catch(e) {
+    // localStorage voll – älteste SP-Caches löschen und nochmal versuchen
+    try {
+      const keys = Object.keys(localStorage).filter(k => k.startsWith(SP_CACHE_PREFIX));
+      keys.sort((a,b) => {
+        try { return JSON.parse(localStorage.getItem(a)).ts - JSON.parse(localStorage.getItem(b)).ts; } catch { return 0; }
+      });
+      keys.slice(0, Math.ceil(keys.length / 2)).forEach(k => localStorage.removeItem(k));
+      localStorage.setItem(SP_CACHE_PREFIX + key, JSON.stringify({ ts: Date.now(), data }));
+    } catch {}
+  }
+}
+
+function cacheGet(key, ttl) {
+  if (!ttl) return null;
+  try {
+    const raw = localStorage.getItem(SP_CACHE_PREFIX + key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > ttl) { localStorage.removeItem(SP_CACHE_PREFIX + key); return null; }
+    return data;
+  } catch { return null; }
+}
+
+function cacheClear(prefix = '') {
+  Object.keys(localStorage)
+    .filter(k => k.startsWith(SP_CACHE_PREFIX + prefix))
+    .forEach(k => localStorage.removeItem(k));
+}
+
+// Gecachte API-Abfrage mit vollständiger Paginierung
+async function spFetchAll(firstUrl, token, cacheKey, ttl, onProgress) {
+  const cached = cacheGet(cacheKey, ttl);
+  if (cached) return { data: cached, fromCache: true };
+  const items = [];
+  let url = firstUrl;
+  let page = 0;
+  while (url) {
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message || 'API-Fehler');
+    items.push(...(d.items || []).filter(Boolean));
+    url = d.next || null;
+    page++;
+    if (onProgress) onProgress(items.length, d.total || items.length);
+  }
+  if (ttl) cacheSet(cacheKey, items);
+  return { data: items, fromCache: false };
+}
+
+// Cache-Alter als lesbaren String
+function cacheAge(key) {
+  try {
+    const raw = localStorage.getItem(SP_CACHE_PREFIX + key);
+    if (!raw) return '';
+    const { ts } = JSON.parse(raw);
+    const mins = Math.floor((Date.now() - ts) / 60000);
+    if (mins < 1) return 'gerade eben';
+    if (mins < 60) return `vor ${mins} Min.`;
+    return `vor ${Math.floor(mins/60)} Std.`;
+  } catch { return ''; }
+}
+
+// Cache-Banner HTML
+function cacheBanner(key, onRefresh) {
+  const age = cacheAge(key);
+  if (!age) return '';
+  return `<div class="sp-cache-bar">
+    <span>💾 Zwischengespeichert – ${age}</span>
+    <button onclick="${onRefresh}">↻ Neu laden</button>
+  </div>`;
+}
+
 let spCurrentTab   = 0;          // 0=playlists 1=search 2=liked
 let spCurrentPl    = null;       // { id, name, total } when inside a playlist
 let spSearchTimer  = null;
@@ -1186,63 +1289,85 @@ function spShowImportBar(name, id) {
 }
 
 // ── Playlists ──────────────────────────────────────────
-async function spLoadPlaylists() {
+async function spLoadPlaylists(forceRefresh = false) {
+  const CKEY = 'playlists_' + (localStorage.getItem('sp_user') || 'me');
+  if (forceRefresh) { localStorage.removeItem(SP_CACHE_PREFIX + CKEY); }
+
+  // Gecachte Version sofort anzeigen, dann ggf. neu laden
+  const cached = cacheGet(CKEY, TTL.playlists);
+  if (cached) {
+    renderPlaylists(cached, CKEY);
+    return;
+  }
+
   spLoader('Lade deine Playlists…');
   const token = await getValidToken();
   if (!token) { spRender('<div class="sp-empty">Keine Verbindung</div>'); return; }
   try {
-    const items = [];
-    let url = 'https://api.spotify.com/v1/me/playlists?limit=50';
-    while (url) {
-      const r = await fetch(url, { headers:{Authorization:'Bearer '+token} });
-      const d = await r.json();
-      items.push(...(d.items||[]).filter(x => x != null));
-      url = d.next || null;
-    }
-    if (!items.length) { spRender('<div class="sp-empty">Keine Playlists gefunden</div>'); return; }
-    const cards = items
-      .filter(pl => pl && pl.id && pl.tracks != null)  // Podcasts/null-tracks ausfiltern
-      .map(pl => {
-        const img   = pl.images?.[0]?.url;
-        const thumb = img ? `<img src="${img}" alt="">` : '🎵';
-        const total = pl.tracks?.total ?? 0;
-        return `<div class="sp-pl-card" onclick="spOpenPlaylist('${pl.id}','${escJs(pl.name)}',${total})">
-          <div class="sp-pl-img">${thumb}</div>
-          <div class="sp-pl-name">${esc(pl.name)}</div>
-          <div class="sp-pl-count">${total} Songs</div>
-        </div>`;
-      }).join('');
-    spRender(`<div class="sp-pl-grid">${cards}</div>`);
+    const { data } = await spFetchAll(
+      'https://api.spotify.com/v1/me/playlists?limit=50',
+      token, CKEY, TTL.playlists
+    );
+    renderPlaylists(data, CKEY);
   } catch(e) { spRender(`<div class="sp-empty">Fehler: ${e.message}</div>`); }
 }
 
-async function spOpenPlaylist(id, name, total) {
+function renderPlaylists(items, cacheKey) {
+  if (!items.length) { spRender('<div class="sp-empty">Keine Playlists gefunden</div>'); return; }
+  const cards = items
+    .filter(pl => pl && pl.id && pl.tracks != null)
+    .map(pl => {
+      const img   = pl.images?.[0]?.url;
+      const thumb = img ? `<img src="${img}" alt="">` : '🎵';
+      const total = pl.tracks?.total ?? 0;
+      return `<div class="sp-pl-card" onclick="spOpenPlaylist('${pl.id}','${escJs(pl.name)}',${total})">
+        <div class="sp-pl-img">${thumb}</div>
+        <div class="sp-pl-name">${esc(pl.name)}</div>
+        <div class="sp-pl-count">${total} Songs</div>
+      </div>`;
+    }).join('');
+  const banner = cacheBanner(cacheKey, `spLoadPlaylists(true)`);
+  spRender(banner + `<div class="sp-pl-grid">${cards}</div>`);
+}
+
+async function spOpenPlaylist(id, name, total, forceRefresh = false) {
   spCurrentPl = { id, name, total };
-  spLoader(`Lade „${name}"…`);
   spShowImportBar(name, id);
+  const CKEY = 'pl_tracks_' + id;
+  if (forceRefresh) { localStorage.removeItem(SP_CACHE_PREFIX + CKEY); }
+
+  // Aus Cache sofort rendern
+  const cached = cacheGet(CKEY, TTL.tracks);
+  if (cached) {
+    renderPlaylistTracks(cached, id, name, total, CKEY);
+    return;
+  }
+
+  spLoader(`Lade „${name}"…`);
   const token = await getValidToken();
   if (!token) return;
   try {
-    const items = [];
-    let offset = 0;
-    while (offset < total) {
-      const r = await fetch(
-        `https://api.spotify.com/v1/playlists/${id}/tracks?limit=100&offset=${offset}&fields=items(track(id,name,artists,album(images,release_date),external_urls,is_local))`,
-        { headers:{Authorization:'Bearer '+token} }
-      );
-      const d = await r.json();
-      items.push(...(d.items||[]));
-      offset += 100;
-    }
-    const rows = items.map(item => spSongRow(item.track)).filter(Boolean).join('');
-    const header = `
-      <div class="sp-pl-back" onclick="spTab(0)">← Zurück zu Playlists</div>
-      <div class="sp-pl-title-row">
-        <h3>${esc(name)}</h3>
-        <p>${total} Songs</p>
-      </div>`;
-    spRender(header + (rows || '<div class="sp-empty">Keine abspielbaren Songs</div>'));
+    let loaded = 0;
+    const { data } = await spFetchAll(
+      `https://api.spotify.com/v1/playlists/${id}/tracks?limit=100&fields=items(track(id,name,artists,album(images,release_date),external_urls,is_local)),next,total`,
+      token, CKEY, TTL.tracks,
+      (n, tot) => { loaded = n; spLoader(`Lade Songs… ${n} / ${tot}`); }
+    );
+    renderPlaylistTracks(data, id, name, total, CKEY);
   } catch(e) { spRender(`<div class="sp-empty">Fehler: ${e.message}</div>`); }
+}
+
+function renderPlaylistTracks(items, id, name, total, cacheKey) {
+  const rows = items.map(item => spSongRow(item?.track)).filter(Boolean).join('');
+  const banner = cacheBanner(cacheKey, `spOpenPlaylist('${id}','${escJs(name)}',${total},true)`);
+  const header = `
+    <div class="sp-pl-back" onclick="spTab(0)">← Zurück zu Playlists</div>
+    <div class="sp-pl-title-row">
+      <h3>${esc(name)}</h3>
+      <p>${items.length} Songs</p>
+    </div>
+    ${banner}`;
+  spRender(header + (rows || '<div class="sp-empty">Keine abspielbaren Songs</div>'));
 }
 
 // ── Search ─────────────────────────────────────────────
@@ -1271,65 +1396,56 @@ async function spDoSearch() {
 }
 
 // ── Liked Songs ────────────────────────────────────────
-async function spLoadLiked() {
+async function spLoadLiked(forceRefresh = false) {
+  const CKEY = 'liked_' + (localStorage.getItem('sp_user') || 'me');
+  if (forceRefresh) { localStorage.removeItem(SP_CACHE_PREFIX + CKEY); }
+
+  // Aus Cache sofort rendern
+  const cached = cacheGet(CKEY, TTL.liked);
+  if (cached) {
+    renderLikedSongs(cached, CKEY);
+    return;
+  }
+
   spLoader('Lade deine Liked Songs…');
   const token = await getValidToken();
   if (!token) return;
+
+  // Berechtigungs-Check
+  const test = await fetch('https://api.spotify.com/v1/me/tracks?limit=1', { headers:{Authorization:'Bearer '+token} });
+  if (!test.ok) {
+    if (test.status === 401 || test.status === 403) {
+      spRender(`<div class="sp-empty" style="line-height:1.7">
+        ⚠️ <strong>Berechtigung fehlt</strong><br><br>
+        Bitte tippe auf <strong>🎵 → Verbindung trennen</strong> und melde dich neu an.
+      </div>`);
+    } else {
+      spRender(`<div class="sp-empty">API-Fehler ${test.status}</div>`);
+    }
+    return;
+  }
+
   try {
-    const r = await fetch('https://api.spotify.com/v1/me/tracks?limit=50', { headers:{Authorization:'Bearer '+token} });
-
-    // HTTP-Fehler direkt prüfen (nicht nur JSON-error-Feld)
-    if (!r.ok) {
-      if (r.status === 401 || r.status === 403) {
-        spRender(`<div class="sp-empty" style="line-height:1.7">
-          ⚠️ <strong>Berechtigung fehlt</strong><br><br>
-          Dein Spotify-Login hat keinen Zugriff auf Liked Songs.<br>
-          Bitte tippe oben auf <strong>🎵 → Verbindung trennen</strong>
-          und melde dich neu an.
-        </div>`);
-      } else {
-        spRender(`<div class="sp-empty">API-Fehler ${r.status}</div>`);
-      }
-      return;
-    }
-
-    const d = await r.json();
-
-    // Zusätzlich JSON-Error-Feld prüfen
-    if (d.error) {
-      spRender(`<div class="sp-empty">⚠️ ${d.error.message || 'Unbekannter Fehler'}</div>`);
-      return;
-    }
-
-    // Alle Seiten laden
-    const allItems = [...(d.items || [])];
-    let nextUrl = d.next || null;
-    while (nextUrl) {
-      const rn = await fetch(nextUrl, { headers:{Authorization:'Bearer '+token} });
-      if (!rn.ok) break;
-      const dn = await rn.json();
-      if (dn.error) break;
-      allItems.push(...(dn.items || []));
-      nextUrl = dn.next || null;
-    }
-
-    if (!allItems.length) {
-      spRender('<div class="sp-empty">Keine Liked Songs gefunden</div>');
-      return;
-    }
-
-    const tracks = allItems.map(i => i?.track).filter(Boolean);
-    if (!tracks.length) {
-      spRender('<div class="sp-empty">Keine abspielbaren Liked Songs gefunden</div>');
-      return;
-    }
-
-    const rows = tracks.map(t => spSongRow(t, true)).filter(Boolean).join('');
-    spRender(rows || '<div class="sp-empty">Keine abspielbaren Songs</div>');
-    spShowImportBar(`Liked Songs (${tracks.length})`, '__liked__');
-    document.getElementById('sp-import-bar-btn').onclick = () => spImportLiked();
+    const { data } = await spFetchAll(
+      'https://api.spotify.com/v1/me/tracks?limit=50',
+      token, CKEY, TTL.liked,
+      (n, tot) => spLoader(`Lade Liked Songs… ${n} / ${tot}`)
+    );
+    renderLikedSongs(data, CKEY);
   } catch(e) { spRender(`<div class="sp-empty">Fehler: ${e.message}</div>`); }
 }
+
+function renderLikedSongs(items, cacheKey) {
+  const tracks = items.map(i => i?.track).filter(Boolean);
+  if (!tracks.length) { spRender('<div class="sp-empty">Keine Liked Songs gefunden</div>'); return; }
+  const rows = tracks.map(t => spSongRow(t, true)).filter(Boolean).join('');
+  const banner = cacheBanner(cacheKey, `spLoadLiked(true)`);
+  spRender(banner + (rows || '<div class="sp-empty">Keine abspielbaren Songs</div>'));
+  spShowImportBar(`Liked Songs (${tracks.length})`, '__liked__');
+  document.getElementById('sp-import-bar-btn').onclick = () => spImportLiked();
+}
+
+// ── Song row builder
 
 // ── Song row builder ───────────────────────────────────
 function spSongRow(track, directImg=false) {
