@@ -174,7 +174,7 @@
 <body>
 
 <div class="logo">
-  <div class="logo-text">Hitz<em>da</em></div>
+  <div class="logo-text">Hit<em>Order</em></div>
   <div class="logo-badge">🎵 Raterunde</div>
 </div>
 
@@ -246,6 +246,278 @@
 
 <script>
 // ══════════════════════════════════════════════════════
+// HITORDER LOGGER
+// Persistenter Log via localStorage, sichtbar in allen Seiten
+// ══════════════════════════════════════════════════════
+const HLog = (() => {
+  const KEY      = 'hitorder_log';
+  const MAX      = 400;
+  const PAGE     = document.title.includes('Player') ? 'PLAYER' : 'MAIN';
+
+  // ── Intern ────────────────────────────────────────────
+  function _load()  { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } }
+  function _save(e) { try { localStorage.setItem(KEY, JSON.stringify(e)); } catch {
+    // localStorage voll – älteste Hälfte löschen
+    const trimmed = e.slice(Math.floor(e.length / 2));
+    try { localStorage.setItem(KEY, JSON.stringify(trimmed)); } catch {}
+  }}
+
+  function _add(level, tag, msg, detail) {
+    const entries = _load();
+    const now = new Date();
+    const ts = now.toTimeString().slice(0,8) + '.' + String(now.getMilliseconds()).padStart(3,'0');
+    entries.push({ ts, page: PAGE, level, tag, msg, detail: detail || null });
+    if (entries.length > MAX) entries.splice(0, entries.length - MAX);
+    _save(entries);
+    // Konsole
+    const prefix = `[${ts}] [${level}] [${tag}]`;
+    if (level === 'ERR')  console.error(prefix, msg, detail || '');
+    else if (level === 'WARN') console.warn(prefix, msg, detail || '');
+    else console.log(prefix, msg, detail || '');
+    // Badge aktualisieren
+    _updateBadge();
+  }
+
+  // ── Öffentliche API ───────────────────────────────────
+  const api = {
+    info:    (tag, msg, detail) => _add('INFO', tag, msg, detail),
+    ok:      (tag, msg, detail) => _add('OK',   tag, msg, detail),
+    warn:    (tag, msg, detail) => _add('WARN', tag, msg, detail),
+    error:   (tag, msg, detail) => _add('ERR',  tag, msg, detail),
+    clear:   () => { localStorage.removeItem(KEY); _updateBadge(); },
+    entries: () => _load(),
+    errors:  () => _load().filter(e => e.level === 'ERR'),
+  };
+
+  // ── Badge (Fehleranzahl) ──────────────────────────────
+  function _updateBadge() {
+    const btn = document.getElementById('hlog-btn');
+    if (!btn) return;
+    const cnt = api.errors().length;
+    let badge = btn.querySelector('.hlog-badge');
+    if (cnt === 0) { badge?.remove(); return; }
+    if (!badge) { badge = document.createElement('div'); badge.className = 'hlog-badge'; btn.appendChild(badge); }
+    badge.textContent = cnt > 99 ? '!' : cnt;
+  }
+
+  // ── UI ────────────────────────────────────────────────
+  function _inject() {
+    // CSS
+    const style = document.createElement('style');
+    style.textContent = `
+      #hlog-btn {
+        position: fixed; bottom: 88px; right: 16px; z-index: 9000;
+        width: 40px; height: 40px; border-radius: 12px;
+        background: rgba(26,25,33,.92); border: 1px solid #2d2b3d;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; backdrop-filter: blur(8px);
+        box-shadow: 0 4px 16px rgba(0,0,0,.4);
+        font-size: 17px; user-select: none;
+        transition: transform .12s;
+      }
+      #hlog-btn:active { transform: scale(.9); }
+      .hlog-badge {
+        position: absolute; top: -5px; right: -5px;
+        min-width: 16px; height: 16px; border-radius: 8px;
+        background: #e8574a; color: #fff;
+        font-size: 9px; font-weight: 800; font-family: sans-serif;
+        display: flex; align-items: center; justify-content: center;
+        padding: 0 3px; pointer-events: none;
+      }
+      #hlog-panel {
+        position: fixed; inset: 0; z-index: 9999;
+        background: #0e0d12; display: flex; flex-direction: column;
+        transform: translateY(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
+      }
+      #hlog-panel.open { transform: translateY(0); }
+      #hlog-topbar {
+        display: flex; align-items: center; gap: 10px;
+        padding: 14px 16px 0; flex-shrink: 0;
+        border-bottom: 1px solid #2d2b3d;
+        padding-bottom: 10px;
+      }
+      #hlog-topbar h2 { font-size: 15px; font-weight: 700; color: #ece8f0; flex: 1; font-family: sans-serif; }
+      .hlog-topbtn {
+        background: #1a1921; border: 1px solid #2d2b3d; border-radius: 8px;
+        color: #7e7a93; font-size: 12px; padding: 5px 10px; cursor: pointer;
+        font-family: sans-serif;
+      }
+      .hlog-topbtn:hover { color: #ece8f0; }
+      .hlog-close {
+        background: none; border: none; color: #7e7a93;
+        font-size: 22px; cursor: pointer; line-height: 1; padding: 0 4px;
+      }
+      #hlog-tabs {
+        display: flex; border-bottom: 1px solid #2d2b3d; flex-shrink: 0;
+      }
+      .hlog-tab {
+        flex: 1; padding: 10px; text-align: center;
+        font-size: 12px; font-weight: 600; color: #7e7a93;
+        cursor: pointer; border-bottom: 2px solid transparent;
+        font-family: sans-serif; background: none; border-top: none;
+        border-left: none; border-right: none;
+        transition: color .15s;
+      }
+      .hlog-tab.active { color: #ece8f0; border-bottom-color: #f0b429; }
+      #hlog-list {
+        flex: 1; overflow-y: auto; padding: 4px 0;
+      }
+      #hlog-empty {
+        display: flex; align-items: center; justify-content: center;
+        height: 100%; color: #7e7a93; font-size: 13px; font-family: sans-serif;
+      }
+      .hlog-entry {
+        display: flex; gap: 8px; padding: 7px 12px;
+        border-bottom: 1px solid rgba(45,43,61,.5);
+        cursor: pointer;
+      }
+      .hlog-entry:hover { background: rgba(26,25,33,.6); }
+      .hlog-entry.level-ERR  { background: rgba(232,87,74,.04); }
+      .hlog-icon { font-size: 13px; margin-top: 1px; flex-shrink: 0; line-height: 1.5; }
+      .hlog-body { flex: 1; min-width: 0; }
+      .hlog-meta {
+        display: flex; align-items: center; gap: 5px;
+        margin-bottom: 2px; flex-wrap: wrap;
+      }
+      .hlog-ts   { font-size: 10px; color: #7e7a93; font-family: monospace; }
+      .hlog-page { font-size: 9px; color: #7e7a93; background: #1a1921;
+                   border: 1px solid #2d2b3d; border-radius: 3px;
+                   padding: 1px 4px; font-family: monospace; }
+      .hlog-tag  { font-size: 10px; font-weight: 700; border-radius: 4px;
+                   padding: 1px 5px; font-family: monospace; }
+      .hlog-tag.level-INFO { color: #7e7a93; background: rgba(126,122,147,.12); }
+      .hlog-tag.level-OK   { color: #1DB954; background: rgba(29,185,84,.12); }
+      .hlog-tag.level-WARN { color: #f0b429; background: rgba(240,180,41,.12); }
+      .hlog-tag.level-ERR  { color: #e8574a; background: rgba(232,87,74,.12); }
+      .hlog-msg  { font-size: 12px; color: #ece8f0; line-height: 1.4; font-family: sans-serif; word-break: break-word; }
+      .hlog-detail {
+        margin-top: 5px; padding: 7px 9px;
+        background: #1a1921; border: 1px solid #2d2b3d; border-radius: 6px;
+        font-size: 11px; color: #7e7a93; font-family: monospace;
+        white-space: pre-wrap; word-break: break-all; line-height: 1.5;
+      }
+      .hlog-copied { font-size: 9px; color: #1DB954; margin-left: 4px; }
+    `;
+    document.head.appendChild(style);
+
+    // Button
+    const btn = document.createElement('div');
+    btn.id = 'hlog-btn';
+    btn.innerHTML = '⌨';
+    btn.title = 'Log anzeigen';
+    btn.onclick = () => openLog();
+    document.body.appendChild(btn);
+    _updateBadge();
+
+    // Panel
+    const panel = document.createElement('div');
+    panel.id = 'hlog-panel';
+    panel.innerHTML = `
+      <div id="hlog-topbar">
+        <h2>Log</h2>
+        <button class="hlog-topbtn" onclick="HLog._copyAll()">Alles kopieren</button>
+        <button class="hlog-topbtn" onclick="HLog._confirmClear()">Leeren</button>
+        <button class="hlog-close" onclick="closeLog()">✕</button>
+      </div>
+      <div id="hlog-tabs">
+        <button class="hlog-tab active" id="hlog-tab-all"    onclick="HLog._showTab('all')">Alle</button>
+        <button class="hlog-tab"        id="hlog-tab-errors" onclick="HLog._showTab('errors')">Fehler</button>
+      </div>
+      <div id="hlog-list"></div>
+      <div id="hlog-empty" style="display:none">Keine Einträge</div>
+    `;
+    document.body.appendChild(panel);
+  }
+
+  // ── Log Panel öffnen/schließen ────────────────────────
+  let _tab = 'all';
+  window.openLog  = () => { _renderList(); document.getElementById('hlog-panel').classList.add('open'); };
+  window.closeLog = () => { document.getElementById('hlog-panel').classList.remove('open'); };
+
+  api._showTab = (tab) => {
+    _tab = tab;
+    document.getElementById('hlog-tab-all')   .classList.toggle('active', tab === 'all');
+    document.getElementById('hlog-tab-errors').classList.toggle('active', tab === 'errors');
+    _renderList();
+  };
+
+  // ── Eintragsliste rendern ─────────────────────────────
+  const _icons = { INFO:'ℹ️', OK:'✅', WARN:'⚠️', ERR:'🔴' };
+
+  function _renderList() {
+    const list  = document.getElementById('hlog-list');
+    const empty = document.getElementById('hlog-empty');
+    if (!list) return;
+    const raw  = _load();
+    const items = (_tab === 'errors' ? raw.filter(e=>e.level==='ERR') : raw).reverse();
+
+    // Fehler-Tab-Label aktualisieren
+    const errCnt = raw.filter(e=>e.level==='ERR').length;
+    const errTab = document.getElementById('hlog-tab-errors');
+    if (errTab) errTab.textContent = errCnt > 0 ? `Fehler (${errCnt})` : 'Fehler';
+
+    if (!items.length) {
+      list.innerHTML = '';
+      empty.style.display = 'flex';
+      empty.textContent = _tab === 'errors' ? 'Keine Fehler 🎉' : 'Noch keine Einträge';
+      return;
+    }
+    empty.style.display = 'none';
+
+    list.innerHTML = items.map((e, i) => `
+      <div class="hlog-entry level-${e.level}" onclick="HLog._toggle(${i})" id="hlog-e-${i}">
+        <div class="hlog-icon">${_icons[e.level] || 'ℹ️'}</div>
+        <div class="hlog-body">
+          <div class="hlog-meta">
+            <span class="hlog-ts">${e.ts}</span>
+            <span class="hlog-page">${e.page}</span>
+            <span class="hlog-tag level-${e.level}">${e.tag}</span>
+          </div>
+          <div class="hlog-msg">${_escHtml(e.msg)}</div>
+          ${e.detail ? `<div class="hlog-detail" id="hlog-d-${i}" style="display:none">${_escHtml(e.detail)}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  api._toggle = (i) => {
+    const d = document.getElementById(`hlog-d-${i}`);
+    if (d) d.style.display = d.style.display === 'none' ? 'block' : 'none';
+  };
+
+  api._copyAll = () => {
+    const text = _load().map(e =>
+      `[${e.ts}] [${e.level}] [${e.page}] [${e.tag}] ${e.msg}` +
+      (e.detail ? `\n  → ${e.detail}` : '')
+    ).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.querySelector('#hlog-topbar .hlog-topbtn');
+      if (btn) { const orig = btn.textContent; btn.textContent = '✓ Kopiert'; setTimeout(()=>btn.textContent=orig, 1500); }
+    }).catch(() => {});
+  };
+
+  api._confirmClear = () => {
+    if (confirm('Log wirklich leeren?')) {
+      api.clear();
+      _renderList();
+    }
+  };
+
+  function _escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Init nach DOM-ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _inject);
+  } else {
+    _inject();
+  }
+
+  return api;
+})();
+
+// ══════════════════════════════════════════════════════
 // PARAMS  –  alle aus der URL lesen BEVOR irgendetwas
 //            passiert (auch vor einem OAuth-Redirect)
 // ══════════════════════════════════════════════════════
@@ -258,7 +530,10 @@ try {
   const dec = decodeURIComponent(atob(S_PARAM));
   const [t,a,y] = dec.split('|');
   songInfo = { title:t||'', artist:a||'', year:y||'' };
-} catch(e) {}
+  HLog.ok('PARAMS', 'Song-Info geparst', `Titel:    ${songInfo.title}\nInterpret: ${songInfo.artist}\nJahr:      ${songInfo.year}\nTrack-ID:  ${TRACK_ID}`);
+} catch(e) {
+  HLog.error('PARAMS', 'Song-Info Parsing fehlgeschlagen', `s-Param: ${S_PARAM}\nFehler: ${e.message}`);
+}
 
 // Saubere Redirect URI – OHNE Query-Params (muss exakt mit Spotify-Dashboard übereinstimmen)
 const REDIRECT_URI = window.location.origin + window.location.pathname;
@@ -348,17 +623,19 @@ async function doAuth() {
 // OAuth Callback – nur verarbeiten wenn ?code vorhanden
 async function handleCallback(code) {
   const verifier = localStorage.getItem('sp_p_verifier');
-  if (!CLIENT_ID || !verifier) { showError('Auth-Fehler', 'Bitte Seite neu laden.'); return false; }
+  HLog.info('AUTH', 'OAuth Callback', `code: ${code.slice(0,8)}…  redirect_uri: ${REDIRECT_URI}`);
+  if (!CLIENT_ID || !verifier) {
+    HLog.error('AUTH', 'Auth-Fehler: CLIENT_ID oder verifier fehlt', `CLIENT_ID: ${!!CLIENT_ID}  verifier: ${!!verifier}`);
+    showError('Auth-Fehler', 'Bitte Seite neu laden.'); return false;
+  }
   try {
+    const t0 = Date.now();
     const r = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        grant_type:    'authorization_code',
-        code,
-        redirect_uri:  REDIRECT_URI,   // muss identisch mit doAuth() sein
-        client_id:     CLIENT_ID,
-        code_verifier: verifier,
+        grant_type: 'authorization_code', code,
+        redirect_uri: REDIRECT_URI, client_id: CLIENT_ID, code_verifier: verifier,
       })
     });
     if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error_description || 'Token-Fehler'); }
@@ -366,19 +643,17 @@ async function handleCallback(code) {
     localStorage.setItem('sp_p_token',   d.access_token);
     localStorage.setItem('sp_p_exp',     Date.now() + d.expires_in * 1000);
     if (d.refresh_token) localStorage.setItem('sp_p_refresh', d.refresh_token);
-    // Track-Info aus sessionStorage wiederherstellen
+    HLog.ok('AUTH', 'Player-Token erhalten', `expires_in: ${d.expires_in}s  Dauer: ${Date.now()-t0}ms`);
     const pending = JSON.parse(sessionStorage.getItem('sp_p_pending') || '{}');
     sessionStorage.removeItem('sp_p_pending');
-    const restoredId = pending.trackId || '';
-    const restoredS  = pending.sParam  || '';
-    // Seite mit korrekten Track-Params neu laden (sauber, kein ?code mehr in der URL)
+    HLog.info('AUTH', 'Weiterleitung mit Track-Params', `trackId: ${pending.trackId || '–'}`);
     window.location.replace(
       window.location.pathname +
-      '?id=' + encodeURIComponent(restoredId) +
-      '&s='  + encodeURIComponent(restoredS)
+      '?id=' + encodeURIComponent(pending.trackId || '') +
+      '&s='  + encodeURIComponent(pending.sParam  || '')
     );
-    return true;  // wird nie erreicht wegen replace, aber für Typsicherheit
-  } catch(e) { showError('Anmeldung fehlgeschlagen', e.message); return false; }
+    return true;
+  } catch(e) { HLog.error('AUTH', 'Player OAuth fehlgeschlagen', e.message); showError('Anmeldung fehlgeschlagen', e.message); return false; }
 }
 
 // ══════════════════════════════════════════════════════
@@ -425,47 +700,61 @@ function initPlayer(token) {
 
   player.addListener('ready', ({ device_id }) => {
     deviceId = device_id;
+    HLog.ok('SDK', 'Player bereit', `device_id: ${device_id}`);
     startPlayback();
   });
 
-  player.addListener('not_ready', () => {
+  player.addListener('not_ready', ({ device_id }) => {
+    HLog.warn('SDK', 'Player nicht bereit', `device_id: ${device_id}`);
     setPlayBtn(false, false);
   });
 
+  let _firstState = true;
   player.addListener('player_state_changed', state => {
-    if (!state) return;
+    if (!state) { HLog.warn('SDK', 'Leerer player_state empfangen'); return; }
+    const wasPlaying = isPlaying;
     isPlaying = !state.paused;
     trackDur  = state.duration;
     trackPos  = state.position;
+    if (_firstState) {
+      _firstState = false;
+      HLog.ok('SDK', 'Erste Wiedergabe-State', `Track:    ${state.track_window?.current_track?.name || '?'}\nArtist:   ${state.track_window?.current_track?.artists?.map(a=>a.name).join(', ') || '?'}\nDuration: ${Math.floor(state.duration/60000)}:${String(Math.floor((state.duration%60000)/1000)).padStart(2,'0')}\nPlaying:  ${!state.paused}\nPosition: ${Math.floor(state.position/1000)}s`);
+    } else if (wasPlaying !== isPlaying) {
+      HLog.info('SDK', isPlaying ? 'Wiedergabe gestartet' : 'Wiedergabe pausiert',
+        `Position: ${Math.floor(trackPos/1000)}s / ${Math.floor(trackDur/1000)}s`);
+    }
     setPlayBtn(true, isPlaying);
     document.getElementById('waveform').classList.toggle('paused', !isPlaying);
     updateProgress(trackPos, trackDur);
     isPlaying ? startPosTimer() : stopPosTimer();
   });
 
-  player.addListener('initialization_error', ({ message }) => showError('SDK-Fehler', message));
-  player.addListener('authentication_error',  () => showError('Auth abgelaufen', 'Bitte Seite neu laden.'));
-  player.addListener('account_error',         () => showError('Kein Spotify Premium', 'Premium ist für die Wiedergabe erforderlich.'));
+  player.addListener('initialization_error', ({ message }) => { HLog.error('SDK', 'Initialisierungsfehler', message); showError('SDK-Fehler', message); });
+  player.addListener('authentication_error',  ({ message }) => { HLog.error('SDK', 'Authentifizierungsfehler', message); showError('Auth abgelaufen', 'Bitte Seite neu laden.'); });
+  player.addListener('account_error',         ({ message }) => { HLog.error('SDK', 'Account-Fehler (Premium?)', message); showError('Kein Spotify Premium', 'Premium ist für die Wiedergabe erforderlich.'); });
 
+  HLog.info('SDK', 'player.connect() wird aufgerufen…');
   player.connect();
 }
 
 async function startPlayback() {
   showScreen('screen-player');
   const token = await getValidPlayerToken();
-  if (!token) { showError('Token abgelaufen', 'Bitte Seite neu laden.'); return; }
+  if (!token) { HLog.error('PLAYER', 'Kein Token beim Starten der Wiedergabe'); showError('Token abgelaufen', 'Bitte Seite neu laden.'); return; }
+  HLog.info('PLAYER', 'Starte Wiedergabe via API', `track: spotify:track:${TRACK_ID}\ndevice_id: ${deviceId}`);
   try {
+    const t0 = Date.now();
     const r = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
       method: 'PUT',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ uris: ['spotify:track:' + TRACK_ID] })
     });
-    // 204 = OK (no content), 202 = accepted
     if (!r.ok && r.status !== 204 && r.status !== 202) {
       const e = await r.json().catch(() => ({}));
       throw new Error(e.error?.message || `HTTP ${r.status}`);
     }
-  } catch(e) { showError('Wiedergabe fehlgeschlagen', e.message); }
+    HLog.ok('PLAYER', `Wiedergabe gestartet`, `HTTP ${r.status}  Dauer: ${Date.now()-t0}ms`);
+  } catch(e) { HLog.error('PLAYER', 'Wiedergabe fehlgeschlagen', e.message); showError('Wiedergabe fehlgeschlagen', e.message); }
 }
 
 // ── Transport ─────────────────────────────────────────
@@ -479,6 +768,7 @@ async function seekRel(ms) {
   const st = await player.getCurrentState();
   if (!st) return;
   const target = Math.max(0, Math.min(st.duration, st.position + ms));
+  HLog.info('PLAYER', `Seek ${ms > 0 ? '+' : ''}${ms/1000}s`, `${Math.floor(st.position/1000)}s → ${Math.floor(target/1000)}s / ${Math.floor(st.duration/1000)}s`);
   await player.seek(target);
 }
 
@@ -533,6 +823,7 @@ function showSolution() {
   document.getElementById('sol-title').textContent  = songInfo.title  || '–';
   document.getElementById('sol-artist').textContent = songInfo.artist || '–';
   document.getElementById('solution-panel').classList.add('show');
+  HLog.ok('PLAYER', 'Lösung angezeigt', `Titel:    ${songInfo.title}\nInterpret: ${songInfo.artist}\nJahr:      ${songInfo.year}\nPosition:  ${Math.floor(trackPos/1000)}s / ${Math.floor(trackDur/1000)}s`);
 }
 function closeSolution() {
   document.getElementById('solution-panel').classList.remove('show');
@@ -542,29 +833,40 @@ function closeSolution() {
 // INIT
 // ══════════════════════════════════════════════════════
 (async () => {
-  // 1. Fehler: keine Track-ID – zeige die tatsächliche URL zur Diagnose
+  HLog.info('INIT', 'Player gestartet', `url: ${window.location.href.slice(0, 100)}`);
+
+  // 1. Fehler: keine Track-ID
   if (!TRACK_ID) {
     const received = window.location.href;
+    HLog.error('INIT', 'Kein "id"-Parameter in der URL', `Empfangen: ${received}`);
     const short = received.length > 80 ? received.slice(0,80)+'…' : received;
     showError(
       'Ungültiger QR-Code',
-      'Kein "id"-Parameter gefunden.\n\nEmpfangene URL:\n' + short +
-      '\n\nBitte PDF neu erstellen und QR-Code neu scannen.'
+      'Kein "id"-Parameter gefunden.
+
+Empfangene URL:
+' + short +
+      '
+
+Bitte PDF neu erstellen und QR-Code neu scannen.'
     );
     return;
   }
+  HLog.info('INIT', 'Parameter OK', `TRACK_ID: ${TRACK_ID}  songInfo: ${songInfo.title} – ${songInfo.artist} (${songInfo.year})`);
 
-  // 2. Fehler: HitOrder wurde noch nicht eingerichtet
+  // 2. HitOrder nicht eingerichtet
   if (!CLIENT_ID) {
+    HLog.error('INIT', 'Keine Client ID gespeichert', 'localStorage sp_client_id fehlt');
     showError('HitOrder nicht eingerichtet', 'Öffne HitOrder und verbinde Spotify unter dem 🎵 Symbol.');
     return;
   }
 
-  // 3. OAuth Callback abhandeln (Spotify leitet hierher zurück)
+  // 3. OAuth Callback
   const code  = _raw.get('code');
   const oerr  = _raw.get('error');
-  if (oerr) { showError('Anmeldung abgebrochen', ''); return; }
+  if (oerr) { HLog.error('INIT', 'OAuth abgebrochen', oerr); showError('Anmeldung abgebrochen', ''); return; }
   if (code) {
+    HLog.info('INIT', 'OAuth Code empfangen', `code: ${code.slice(0,8)}…`);
     const ok = await handleCallback(code);
     if (!ok) return;
   }
@@ -572,9 +874,11 @@ function closeSolution() {
   // 4. Token prüfen
   let token = await getValidPlayerToken();
   if (!token) {
+    HLog.warn('INIT', 'Kein gültiger Token – zeige Auth-Screen');
     showScreen('screen-auth');
     return;
   }
+  HLog.ok('INIT', 'Token gültig – lade SDK');
 
   // 5. SDK laden & Player starten
   loadSDK(token);
