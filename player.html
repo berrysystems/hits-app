@@ -539,30 +539,22 @@ try {
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 
 // ══════════════════════════════════════════════════════
-// AUTH  –  eigene Schlüssel, NICHT dieselben wie HitOrder
-//          (sp_p_ prefix = "player")
+// AUTH  –  HitOrder-Token direkt wiederverwenden
+// Der Token aus HitOrder hat bereits alle nötigen Scopes
+// (streaming, playback-state etc.) – kein separater Login nötig.
 // ══════════════════════════════════════════════════════
-// Wir lesen die Client-ID von HitOrder (die der User
-// eingerichtet hat) aber speichern Player-Token getrennt.
 const CLIENT_ID = localStorage.getItem('sp_client_id') || '';
 
-const PLAYER_SCOPES = [
-  'streaming',
-  'user-read-email',
-  'user-read-private',
-  'user-read-playback-state',
-  'user-modify-playback-state'
-].join(' ');
-
 const getPlayerToken = () => {
-  const tok = localStorage.getItem('sp_p_token');
-  const exp = parseInt(localStorage.getItem('sp_p_exp') || '0');
+  const tok = localStorage.getItem('sp_token');
+  const exp = parseInt(localStorage.getItem('sp_exp') || '0');
   return tok && Date.now() < exp - 60000 ? tok : null;
 };
 
 async function refreshPlayerToken() {
-  const refresh = localStorage.getItem('sp_p_refresh');
+  const refresh = localStorage.getItem('sp_refresh');
   if (!CLIENT_ID || !refresh) return false;
+  HLog.info('AUTH', 'Token wird erneuert…');
   try {
     const r = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
@@ -573,13 +565,14 @@ async function refreshPlayerToken() {
         client_id:     CLIENT_ID,
       })
     });
-    if (!r.ok) return false;
+    if (!r.ok) { HLog.error('AUTH', 'Refresh fehlgeschlagen', `HTTP ${r.status}`); return false; }
     const d = await r.json();
-    localStorage.setItem('sp_p_token', d.access_token);
-    localStorage.setItem('sp_p_exp',   Date.now() + d.expires_in * 1000);
-    if (d.refresh_token) localStorage.setItem('sp_p_refresh', d.refresh_token);
+    localStorage.setItem('sp_token',   d.access_token);
+    localStorage.setItem('sp_exp',     Date.now() + d.expires_in * 1000);
+    if (d.refresh_token) localStorage.setItem('sp_refresh', d.refresh_token);
+    HLog.ok('AUTH', 'Token erneuert', `expires_in: ${d.expires_in}s`);
     return true;
-  } catch { return false; }
+  } catch(e) { HLog.error('AUTH', 'Refresh Exception', e.message); return false; }
 }
 
 async function getValidPlayerToken() {
@@ -604,30 +597,32 @@ async function doAuth() {
     showError('Nicht eingerichtet', 'Öffne HitOrder und verbinde zuerst Spotify unter dem 🎵 Symbol.');
     return;
   }
-  // Track-Info vor dem Redirect in sessionStorage sichern
+  const SCOPES = 'playlist-read-private playlist-read-collaborative user-library-read streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state';
+  HLog.info('AUTH', 'Starte OAuth (gleiche Keys wie HitOrder)', `redirect_uri: ${REDIRECT_URI}`);
   sessionStorage.setItem('sp_p_pending', JSON.stringify({ trackId: TRACK_ID, sParam: S_PARAM }));
   const v = makeVerifier();
   const c = await makeChallenge(v);
-  localStorage.setItem('sp_p_verifier', v);
-  const p = new URLSearchParams({
+  localStorage.setItem('sp_verifier', v);
+  const params = new URLSearchParams({
     client_id:             CLIENT_ID,
     response_type:         'code',
     redirect_uri:          REDIRECT_URI,
     code_challenge_method: 'S256',
     code_challenge:        c,
-    scope:                 PLAYER_SCOPES,
+    scope:                 SCOPES,
   });
-  window.location.href = 'https://accounts.spotify.com/authorize?' + p;
+  window.location.href = 'https://accounts.spotify.com/authorize?' + params;
 }
 
 // OAuth Callback – nur verarbeiten wenn ?code vorhanden
 async function handleCallback(code) {
-  const verifier = localStorage.getItem('sp_p_verifier');
+  const verifier = localStorage.getItem('sp_verifier');
   HLog.info('AUTH', 'OAuth Callback', `code: ${code.slice(0,8)}…  redirect_uri: ${REDIRECT_URI}`);
   if (!CLIENT_ID || !verifier) {
     HLog.error('AUTH', 'Auth-Fehler: CLIENT_ID oder verifier fehlt', `CLIENT_ID: ${!!CLIENT_ID}  verifier: ${!!verifier}`);
     showError('Auth-Fehler', 'Bitte Seite neu laden.'); return false;
   }
+  const SCOPES = 'playlist-read-private playlist-read-collaborative user-library-read streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state';
   try {
     const t0 = Date.now();
     const r = await fetch('https://accounts.spotify.com/api/token', {
@@ -640,10 +635,10 @@ async function handleCallback(code) {
     });
     if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error_description || 'Token-Fehler'); }
     const d = await r.json();
-    localStorage.setItem('sp_p_token',   d.access_token);
-    localStorage.setItem('sp_p_exp',     Date.now() + d.expires_in * 1000);
-    if (d.refresh_token) localStorage.setItem('sp_p_refresh', d.refresh_token);
-    HLog.ok('AUTH', 'Player-Token erhalten', `expires_in: ${d.expires_in}s  Dauer: ${Date.now()-t0}ms`);
+    localStorage.setItem('sp_token',   d.access_token);
+    localStorage.setItem('sp_exp',     Date.now() + d.expires_in * 1000);
+    if (d.refresh_token) localStorage.setItem('sp_refresh', d.refresh_token);
+    HLog.ok('AUTH', 'Token erhalten (shared mit HitOrder)', `expires_in: ${d.expires_in}s  Dauer: ${Date.now()-t0}ms`);
     const pending = JSON.parse(sessionStorage.getItem('sp_p_pending') || '{}');
     sessionStorage.removeItem('sp_p_pending');
     HLog.info('AUTH', 'Weiterleitung mit Track-Params', `trackId: ${pending.trackId || '–'}`);
@@ -653,7 +648,7 @@ async function handleCallback(code) {
       '&s='  + encodeURIComponent(pending.sParam  || '')
     );
     return true;
-  } catch(e) { HLog.error('AUTH', 'Player OAuth fehlgeschlagen', e.message); showError('Anmeldung fehlgeschlagen', e.message); return false; }
+  } catch(e) { HLog.error('AUTH', 'OAuth fehlgeschlagen', e.message); showError('Anmeldung fehlgeschlagen', e.message); return false; }
 }
 
 // ══════════════════════════════════════════════════════
